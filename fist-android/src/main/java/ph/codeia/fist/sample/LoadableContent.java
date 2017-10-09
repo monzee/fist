@@ -103,8 +103,8 @@ public class LoadableContent extends AppCompatActivity implements ContentView<St
 
     @Override
     public Fst<Loadable<String>, LoadEvent<String>> loading() {
-        empty();
         message.setText("please wait");
+        refresh.setText("Load");
         refresh.setEnabled(false);
         return Fst.noop();
     }

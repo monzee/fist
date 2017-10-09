@@ -5,7 +5,10 @@ import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.lang.ref.PhantomReference;
+import java.lang.ref.ReferenceQueue;
 import java.util.concurrent.BrokenBarrierException;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutionException;
@@ -65,9 +68,46 @@ public class AsyncMachineTest {
         WORK.shutdown();
     }
 
-    @Test(timeout = 5000)
+    @Test(timeout = 1000)
+    public void gc_works() throws InterruptedException {
+        Printer p = new Printer();
+        ReferenceQueue<Printer> q = new ReferenceQueue<>();
+        PhantomReference<Printer> ref = new PhantomReference<>(p, q);
+        assertNull(q.poll());
+
+        p = null;
+        Runtime.getRuntime().gc();
+        assertNotNull(q.remove());
+    }
+
+    @Test(timeout = 1000)
+    public void async_does_not_leak_the_actor() throws InterruptedException {
+        Printer p = new Printer();
+        ReferenceQueue<Printer> q = new ReferenceQueue<>();
+        PhantomReference<Printer> rp = new PhantomReference<>(p, q);
+
+        Fst.Machine<Integer, Printer, Action> sm = new ExecutorMachine<>(NOOP, 0, MAIN, JOIN, WORK);
+        sm.start(p);
+        sm.exec(p, (_n, _a) -> Fst.async(() -> {
+            Thread.sleep(10_000);
+            return NOOP;
+        }));
+
+        p = null;
+        // looks like i need to do this to reliably trigger gc
+        String garbage = "";
+        for (int i = 3_000; i --> 0;) {
+            garbage += "a";
+        }
+        garbage = null;
+        Runtime.getRuntime().gc();
+        // i don't even need to stop the machine
+        assertNotNull(q.remove());
+    }
+
+    @Test(timeout = 1000)
     public void stream_keeps_running_in_the_background() throws InterruptedException {
-        CountDownLatch settingUp = new CountDownLatch(20);
+        CountDownLatch settingUp = new CountDownLatch(10);
         Printer p = new Printer();
         Fst.Machine<Integer, Printer, Action> sm = start(0, p, NOOP);
         sm.exec(p, (_n, _a) -> Fst.stream(tx -> {
@@ -84,12 +124,12 @@ public class AsyncMachineTest {
         p = new Printer();
         CountDownLatch done = new CountDownLatch(1);
         sm.exec(p, (n, _a) -> {
-            assertEquals(20, n.intValue());
+            assertEquals(10, n.intValue());
             return Fst.async(() -> {
-                Thread.sleep(160);
+                Thread.sleep(32);
                 return (fn, _b) -> {
                     try {
-                        assertTrue(fn > 20);
+                        assertTrue("stream seems to have stopped", fn > 10);
                         return Fst.noop();
                     }
                     finally {
@@ -102,8 +142,8 @@ public class AsyncMachineTest {
         sm.stop();
     }
 
-    @Test(timeout = 5000)
-    public void cancel_streams_by_stopping_the_machine()
+    @Test(timeout = 1000)
+    public void cancels_stream_when_machine_is_stopped()
             throws BrokenBarrierException, InterruptedException
     {
         CyclicBarrier b = new CyclicBarrier(2);
@@ -121,6 +161,40 @@ public class AsyncMachineTest {
         b.await();
         sm.stop();
         b.await();
+    }
+
+    @Test(timeout = 1000)
+    public void cancels_stream_when_actor_is_GCed() throws InterruptedException {
+        CountDownLatch done = new CountDownLatch(1);
+        Printer p = new Printer();
+        ReferenceQueue<Printer> q = new ReferenceQueue<>();
+        PhantomReference<Printer> r = new PhantomReference<>(p, q);
+
+        Fst.Machine<Integer, Printer, Action> sm = start(0, p, NOOP);
+        sm.exec(p, (_a, _b) -> {
+            _b = null;
+            return Fst.stream(tx -> {
+                try {
+                    while (true) {
+                        tx.send(n -> n);
+                        Thread.sleep(16);
+                    }
+                }
+                catch (CancellationException e) {
+                    done.countDown();
+                }
+            }, NOOP);
+        });
+
+        p = null;
+        String garbage = "";
+        for (int i = 3_000; i --> 0;) {
+            garbage += "a";
+        }
+        garbage = null;
+        Runtime.getRuntime().gc();
+        assertNotNull(q.remove());
+        done.await();
     }
 
     static final Action NOOP = (a, b) -> Fst.noop();

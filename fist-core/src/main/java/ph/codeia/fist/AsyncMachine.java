@@ -87,91 +87,94 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
         if (!isStarted) {
             return;
         }
-        runOnMainThread(() -> action.apply(state, actor).match(new Fst.Case<S, A>() {
-            @Override
-            public void enter(S newState) {
-                state = newState;
-                enter.apply(state, actor).match(this);
-            }
-
-            @Override
-            public void reenter() {
-                enter.apply(state, actor).match(this);
-            }
-
-            @Override
-            public void move(S newState) {
-                state = newState;
-            }
-
-            @Override
-            public void raise(Throwable error) {
-                actor.handle(error);
-            }
-
-            @Override
-            public void noop() {
-            }
-
-            @Override
-            public void forward(A newAction) {
-                newAction.apply(state, actor).match(this);
-            }
-
-            @Override
-            public void async(Callable<A> thunk) {
-                Future<A> job = workers.submit(thunk);
-                backlog.add(job);
-                join(new WeakReference<>(actor), job);
-            }
-
-            @Override
-            public void async(S intermediate, Callable<A> thunk) {
-                enter(intermediate);
-                async(thunk);
-            }
-
-            @Override
-            public void stream(Fst.Daemon<S> proc, A receiver) {
-                AtomicReference<Future<?>> join = new AtomicReference<>();
-                WeakReference<O> weakO = new WeakReference<>(actor);
-                WeakReference<Fst.Case<S, A>> weakCase = new WeakReference<>(this);
-                // wait, wouldn't weakCase be immediately nulled after
-                // returning from this method?
-                Fst.Channel<S> tx = mutator -> runOnMainThread(() -> {
-                    O actor = weakO.get();
-                    Fst.Case<S, A> selector = weakCase.get();
-                    if (actor == null || selector == null) {
-                        throw new CancellationException("Actor is gone.");
-                    }
-                    receiver.apply(mutator.fold(state), actor).match(selector);
-                });
-                synchronized (joins) {
-                    join.set(workers.submit(() -> {
-                        try {
-                            proc.accept(tx);
-                        }
-                        catch (InterruptedException ignored) {
-                        }
-                        catch (Exception e) {
-                            runOnMainThread(() -> {
-                                O actor = weakO.get();
-                                if (actor != null) {
-                                    actor.handle(e);
-                                }
-                            });
-                        }
-                        finally {
-                            synchronized (joins) {
-                                joins.remove(join.get());
-                            }
-                            join.set(null);
-                        }
-                    }));
-                    joins.add(join.get());
+        runOnMainThread(() -> {
+            WeakReference<O> weakActor = new WeakReference<>(actor);
+            action.apply(state, actor).match(new Fst.Case<S, A>() {
+                @Override
+                public void enter(S newState) {
+                    state = newState;
+                    enter.apply(state, weakActor.get()).match(this);
                 }
-            }
-        }));
+
+                @Override
+                public void reenter() {
+                    enter.apply(state, weakActor.get()).match(this);
+                }
+
+                @Override
+                public void move(S newState) {
+                    state = newState;
+                }
+
+                @Override
+                public void raise(Throwable error) {
+                    O actor = weakActor.get();
+                    assert actor != null;
+                    actor.handle(error);
+                }
+
+                @Override
+                public void noop() {
+                }
+
+                @Override
+                public void forward(A newAction) {
+                    newAction.apply(state, weakActor.get()).match(this);
+                }
+
+                @Override
+                public void async(Callable<A> thunk) {
+                    Future<A> job = workers.submit(thunk);
+                    backlog.add(job);
+                    join(weakActor, job);
+                }
+
+                @Override
+                public void async(S intermediate, Callable<A> thunk) {
+                    enter(intermediate);
+                    async(thunk);
+                }
+
+                @Override
+                public void stream(Fst.Daemon<S> proc, A receiver) {
+                    AtomicReference<Future<?>> join = new AtomicReference<>();
+                    Fst.Channel<S> tx = mutator -> {
+                        O actor = weakActor.get();
+                        if (actor == null) {
+                            throw new CancellationException("Actor is gone.");
+                        }
+                        runOnMainThread(() -> receiver
+                                .apply(mutator.fold(state), actor)
+                                .match(this)
+                        );
+                    };
+                    synchronized (joins) {
+                        join.set(workers.submit(() -> {
+                            try {
+                                proc.accept(tx);
+                            }
+                            catch (InterruptedException ignored) {
+                            }
+                            catch (Exception e) {
+                                runOnMainThread(() -> {
+                                    O actor = weakActor.get();
+                                    if (actor != null) {
+                                        actor.handle(e);
+                                    }
+                                });
+                            }
+                            finally {
+                                synchronized (joins) {
+                                    joins.remove(join.get());
+                                }
+                                join.set(null);
+                            }
+                        }));
+                        joins.add(join.get());
+                    }
+                }
+            });
+        });
     }
 
     private void join(WeakReference<O> weakActor, Future<A> job) {
@@ -186,7 +189,7 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
                         exec(actor, action);
                     }
                     // should i just lose the result if the view
-                    // gets GC'd or put the job back in the queue?
+                    // gets GC'd or put the new action in the backlog?
                     // this would really only happen when you forget
                     // to stop the machine before exiting
                 }

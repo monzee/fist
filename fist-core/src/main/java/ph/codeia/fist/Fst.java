@@ -18,14 +18,14 @@ import java.util.concurrent.Callable;
  * @author Mon Zafra
  * @since 0.1.0
  */
-public final class Fst<S, A extends Fst.Action<S, ?, A>> {
+public final class Fst<S, A extends Fst.Action<? super S, ?, ? extends A>> {
 
     /**
      * @param <S> The state type
      * @param <O> The actor type
      * @param <A> The action type
      */
-    public interface Action<S, O, A extends Action<S, O, A>> {
+    public interface Action<S, O, A extends Action<? super S, ? extends O, ? extends A>> {
         Fst<S, A> apply(S state, O actor);
     }
 
@@ -51,7 +51,7 @@ public final class Fst<S, A extends Fst.Action<S, ?, A>> {
      * @param <A> The action type
      * @see ph.codeia.fist.moore.Sm
      */
-    public interface Moore<S extends Moore<S, O, A>, O, A extends Action<S, O, A>> {
+    public interface Moore<S extends Moore<S, O, A>, O, A extends Action<? super S, ? extends O, ? extends A>> {
         Fst<S, A> render(O actor);
     }
 
@@ -62,7 +62,7 @@ public final class Fst<S, A extends Fst.Action<S, ?, A>> {
      * @param <O> The actor type
      * @param <A> The action type
      */
-    public interface Machine<S, O, A extends Action<S, O, A>> {
+    public interface Machine<S, O, A extends Action<? super S, ? extends O, ? extends A>> {
         void start(O actor);
         void stop();
         void exec(O actor, A action);
@@ -80,7 +80,7 @@ public final class Fst<S, A extends Fst.Action<S, ?, A>> {
         void accept(Channel<T> t) throws Exception;
     }
 
-    public interface Case<S, A extends Action<S, ?, A>> {
+    public interface Case<S, A extends Action<? super S, ?, ? extends A>> {
         void enter(S newState);
         void reenter();
         void move(S newState);
@@ -107,7 +107,7 @@ public final class Fst<S, A extends Fst.Action<S, ?, A>> {
         void handle(Throwable error);
     }
 
-    private interface Cmd<S, A extends Action<S, ?, A>> {
+    private interface Cmd<S, A extends Action<? super S, ?, ? extends A>> {
         void match(Case<S, A> of);
     }
 

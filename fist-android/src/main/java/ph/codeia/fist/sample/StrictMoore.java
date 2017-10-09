@@ -106,7 +106,7 @@ interface Content extends Sm.State<Content, Content.View, Content.Event> {
 class Controller implements Content {
     @Override
     public Sm<Content, Event> render(View actor) {
-        return Sm.parallel(
+        return Sm.seq(
                 Sm.peek(v -> v.say("Hello, world!")),
                 Sm.async(View::loading, this::fetch)
         );
@@ -121,7 +121,7 @@ class Controller implements Content {
 
             @Override
             public Sm<Content, Event> nothing() {
-                return Sm.parallel(
+                return Sm.seq(
                         Sm.peek(v -> v.say("loading...")),
                         Sm.async(View::loading, () -> fetch())
                 );
@@ -129,7 +129,7 @@ class Controller implements Content {
 
             @Override
             public Sm<Content, Event> loaded(String text) {
-                return Sm.parallel(
+                return Sm.seq(
                         Sm.peek(v -> v.say("reloading...")),
                         Sm.async(View::loading, () -> fetch())
                 );

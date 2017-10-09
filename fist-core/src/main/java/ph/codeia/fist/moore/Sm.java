@@ -10,16 +10,17 @@ import java.util.concurrent.Callable;
  * Strict Moore finite state transducer.
  * <p>
  * The big difference from the other FST type (Mealy) is that the transition
- * methods of the machine do not receive an actor instance. The new state is
- * just computed from the old state and some input and no output is generated.
+ * methods of the machine are not supposed to produce output and thus do not
+ * receive an actor instance. The transitions are just for computing the new
+ * state given some input.
  * <p>
  * The result is that you cannot have side effects in your actions. That's
  * the idea at least, it's up to the programmer to obey or not. It's always
- * possible to invoke some outside method that produces observable system
- * changes from inside an action.
+ * possible to invoke some outside method that produces observable changes
+ * from inside an action.
  * <p>
  * For this abstraction to be of any use at all, it should be able to generate
- * output. In the Moore description, there exists a function
+ * output at some point. In the Moore description, there exists a function
  * {@code G :: State -> Output}, meaning every possible state has a
  * corresponding output. In this implementation, the output is not a value but
  * a side effect, so we use the dual of the Output type and bring it to the
@@ -96,7 +97,7 @@ public final class Sm<S extends Sm.State<S, ?, A>, A extends Sm.Action<S, A>> {
 
     @SafeVarargs
     public static <S extends State<S, ?, A>, A extends Action<S, A>>
-    Sm<S, A> parallel(Sm<S, A>... cmds) {
+    Sm<S, A> seq(Sm<S, A>... cmds) {
         return new Sm<>(e -> e.parallel(cmds));
     }
 
