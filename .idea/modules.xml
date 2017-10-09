@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/fist.iml" filepath="$PROJECT_DIR$/fist.iml" />
+      <module fileurl="file://$PROJECT_DIR$/fist-android/fist-android.iml" filepath="$PROJECT_DIR$/fist-android/fist-android.iml" />
+      <module fileurl="file://$PROJECT_DIR$/fist-core/fist-core.iml" filepath="$PROJECT_DIR$/fist-core/fist-core.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mosby-sample-mvi/mosby-sample-mvi.iml" filepath="$PROJECT_DIR$/mosby-sample-mvi/mosby-sample-mvi.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mvi/mvi.iml" filepath="$PROJECT_DIR$/mvi/mvi.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mvi-common/mvi-common.iml" filepath="$PROJECT_DIR$/mvi-common/mvi-common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/mvp-common/mvp-common.iml" filepath="$PROJECT_DIR$/mvp-common/mvp-common.iml" />
+      <module fileurl="file://$PROJECT_DIR$/presentermanager/presentermanager.iml" filepath="$PROJECT_DIR$/presentermanager/presentermanager.iml" />
+      <module fileurl="file://$PROJECT_DIR$/utils-fragment/utils-fragment.iml" filepath="$PROJECT_DIR$/utils-fragment/utils-fragment.iml" />
+    </modules>
+  </component>
+</project>

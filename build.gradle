@@ -1,0 +1,87 @@
+// Top-level build file where you can add configuration options common to all sub-projects/modules.
+
+buildscript {
+    repositories {
+        jcenter()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:2.3.3'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
+
+ext {
+    VERSION_CODE = "1"
+    VERSION_NAME = "1.0"
+    GROUP = "i.dont.care"
+    POM_URL = "https://jesus.please.just.stop.example.com"
+    POM_SCM_URL = "https://jesus.please.just.stop.example.com"
+    POM_SCM_CONNECTION = "scm:"
+    POM_SCM_DEV_CONNECTION = "scm:"
+    POM_LICENSE_NAME = "unlicensed"
+    POM_LICENCE_NAME = "unlicensed"
+    POM_LICENCE_URL = "https://my.ass"
+    POM_LICENCE_DIST = "wtf is this?"
+    POM_DEVELOPER_ID = 1
+    POM_DEVELOPER_NAME = "mon"
+    POM_DESCRIPTION = "when will this end?"
+
+    compileSdkVersion = 25
+    buildToolsVersion = "26.0.1"
+    targetSdk = 25
+    minSdk = 14
+
+    javaSourceCompatibility = JavaVersion.VERSION_1_7
+    javaTargetCompatibility = JavaVersion.VERSION_1_7
+
+    // Libraries
+    supportLibVersion = '25.4.0'
+    rxjava2Version = '2.0.7'
+
+
+    // Libraries for samples
+    fragmentargsVersion = '2.1.0'
+    butterknifeVersion = '8.5.1'
+    icepickVersion = '3.0.2'
+    retrofitVersion = '1.9.0'
+    picassoVersion = '2.5.2'
+    okhttpVersion = '2.3.0'
+    parcelablepleaseVersion = '1.0.1'
+    annotatedadapterVersion = '1.1.1.1-SNAPSHOT'
+    rxjavaVersion = '1.0.16'
+    rxandroidVersion = '1.0.1'
+    dagger2Version = '2.0'
+
+
+    // Test Libs
+    robolectricVersion = '3.1.4'
+    junitVersion = '4.12'
+    mockitoVersion = '2.0.5-beta'
+    powermockVersion = '1.6.2'
+    leakcanaryVersion = '1.5'
+    androidSupportTestVersion = '0.5'
+}
+
+allprojects {
+    repositories {
+        jcenter()
+        maven {
+            url 'https://oss.sonatype.org/content/repositories/snapshots/'
+        }
+        maven {
+            url "https://jitpack.io"
+        }
+        maven {
+            url 'https://clojars.org/repo/'
+        }
+        maven {
+            url "https://maven.google.com"
+        }
+    }
+}
+
+task clean(type: Delete) {
+    delete rootProject.buildDir
+}

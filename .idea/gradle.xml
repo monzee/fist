@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="GradleSettings">
+    <option name="linkedExternalProjectsSettings">
+      <GradleProjectSettings>
+        <option name="distributionType" value="DEFAULT_WRAPPED" />
+        <option name="externalProjectPath" value="$PROJECT_DIR$" />
+        <option name="modules">
+          <set>
+            <option value="$PROJECT_DIR$" />
+            <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/fist-android" />
+            <option value="$PROJECT_DIR$/fist-core" />
+            <option value="$PROJECT_DIR$/mosby-sample-mvi" />
+            <option value="$PROJECT_DIR$/mvi" />
+            <option value="$PROJECT_DIR$/mvi-common" />
+            <option value="$PROJECT_DIR$/mvp-common" />
+            <option value="$PROJECT_DIR$/presentermanager" />
+            <option value="$PROJECT_DIR$/utils-fragment" />
+          </set>
+        </option>
+        <option name="resolveModulePerSourceSet" value="false" />
+      </GradleProjectSettings>
+    </option>
+  </component>
+</project>
