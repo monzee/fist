@@ -10,7 +10,7 @@
         android:name="ph.codeia.fist.FistSandBox"
         android:theme="@style/AppTheme">
 
-        <activity android:name="ph.codeia.fist.sample.LoadableContent">
+        <activity android:name="ph.codeia.fist.sample.AutoUpdate">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

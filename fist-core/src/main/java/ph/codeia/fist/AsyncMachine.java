@@ -6,6 +6,7 @@ package ph.codeia.fist;
 
 import java.lang.ref.WeakReference;
 import java.util.Queue;
+import java.util.WeakHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -22,6 +23,7 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
 {
     private final Queue<Future<A>> backlog = new ConcurrentLinkedQueue<>();
     private final Queue<Future<?>> joins = new ConcurrentLinkedQueue<>();
+    private final WeakHashMap<Fst.Daemon<S>, Boolean> daemons = new WeakHashMap<>();
     private final ExecutorService joiner;
     private final ExecutorService workers;
     private final A enter;
@@ -135,6 +137,10 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
                     async(thunk);
                 }
 
+                public void async(Fst.Producer<A> producer) {
+
+                }
+
                 @Override
                 public void stream(Fst.Daemon<S> proc, A receiver) {
                     AtomicReference<Future<?>> join = new AtomicReference<>();
@@ -143,10 +149,13 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
                         if (actor == null) {
                             throw new CancellationException("Actor is gone.");
                         }
-                        runOnMainThread(() -> receiver
-                                .apply(mutator.fold(state), actor)
-                                .match(this)
-                        );
+                        Deferred<S> ds = new Deferred<>();
+                        runOnMainThread(() -> {
+                            receiver.apply(mutator.fold(state), actor)
+                                    .match(this);
+                            ds.ok(state);
+                        });
+                        return ds.get();
                     };
                     synchronized (joins) {
                         join.set(workers.submit(() -> {

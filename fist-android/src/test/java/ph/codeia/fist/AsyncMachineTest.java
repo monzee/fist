@@ -6,6 +6,7 @@ import org.junit.Before;
 import org.junit.Test;
 
 import java.lang.ref.PhantomReference;
+import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CancellationException;
@@ -38,7 +39,16 @@ public class AsyncMachineTest {
     static final ExecutorService JOIN = Executors.newSingleThreadExecutor();
     static final ExecutorService WORK = Executors.newCachedThreadPool();
 
-    private Throwable mainThreadError;
+    private volatile Throwable mainThreadError;
+
+    static Reference<?> gc(ReferenceQueue<?> q) throws InterruptedException {
+        assertNull(q.poll());
+        Reference<?> ref = null;
+        for (; ref == null; ref = q.remove(100)) {
+            System.gc();
+        }
+        return ref;
+    }
 
     Fst.Machine<Integer, Printer, Action> start(int s0, Printer p, Action g) {
         Fst.Machine<Integer, Printer, Action> sm = new ExecutorMachine<>(g, s0, MAIN, JOIN, WORK);
@@ -73,11 +83,9 @@ public class AsyncMachineTest {
         Printer p = new Printer();
         ReferenceQueue<Printer> q = new ReferenceQueue<>();
         PhantomReference<Printer> ref = new PhantomReference<>(p, q);
-        assertNull(q.poll());
 
         p = null;
-        Runtime.getRuntime().gc();
-        assertNotNull(q.remove());
+        assertNotNull(gc(q));
     }
 
     @Test(timeout = 1000)
@@ -94,15 +102,8 @@ public class AsyncMachineTest {
         }));
 
         p = null;
-        // looks like i need to do this to reliably trigger gc
-        String garbage = "";
-        for (int i = 3_000; i --> 0;) {
-            garbage += "a";
-        }
-        garbage = null;
-        Runtime.getRuntime().gc();
         // i don't even need to stop the machine
-        assertNotNull(q.remove());
+        assertNotNull(gc(q));
     }
 
     @Test(timeout = 1000)
@@ -143,7 +144,7 @@ public class AsyncMachineTest {
     }
 
     @Test(timeout = 1000)
-    public void cancels_stream_when_machine_is_stopped()
+    public void interrupts_stream_when_machine_is_stopped()
             throws BrokenBarrierException, InterruptedException
     {
         CyclicBarrier b = new CyclicBarrier(2);
@@ -171,29 +172,20 @@ public class AsyncMachineTest {
         PhantomReference<Printer> r = new PhantomReference<>(p, q);
 
         Fst.Machine<Integer, Printer, Action> sm = start(0, p, NOOP);
-        sm.exec(p, (_a, _b) -> {
-            _b = null;
-            return Fst.stream(tx -> {
-                try {
-                    while (true) {
-                        tx.send(n -> n);
-                        Thread.sleep(16);
-                    }
+        sm.exec(p, (_a, _b) -> Fst.stream(tx -> {
+            try {
+                while (true) {
+                    tx.send(n -> n);
+                    Thread.sleep(16);
                 }
-                catch (CancellationException e) {
-                    done.countDown();
-                }
-            }, NOOP);
-        });
+            }
+            catch (CancellationException e) {
+                done.countDown();
+            }
+        }, NOOP));
 
         p = null;
-        String garbage = "";
-        for (int i = 3_000; i --> 0;) {
-            garbage += "a";
-        }
-        garbage = null;
-        Runtime.getRuntime().gc();
-        assertNotNull(q.remove());
+        assertNotNull(gc(q));
         done.await();
     }
 

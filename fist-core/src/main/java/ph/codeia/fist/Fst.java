@@ -5,6 +5,8 @@ package ph.codeia.fist;
  */
 
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.ExecutionException;
 
 /**
  * FST - Finite State Transducer.
@@ -68,12 +70,16 @@ public final class Fst<S, A extends Fst.Action<? super S, ?, ? extends A>> {
         void exec(O actor, A action);
     }
 
+    public interface Producer<T> {
+        void accept(Deferred<T> result);
+    }
+
     public interface Mutate<T> {
         T fold(T t);
     }
 
     public interface Channel<T> {
-        void send(Mutate<T> f);
+        T send(Mutate<T> f) throws ExecutionException, InterruptedException, CancellationException;
     }
 
     public interface Daemon<T> {
@@ -221,6 +227,18 @@ public final class Fst<S, A extends Fst.Action<? super S, ?, ? extends A>> {
      */
     public static <S, A extends Action<S, ?, A>> Fst<S, A> async(S intermediate, Callable<A> thunk) {
         return new Fst<>(e -> e.async(intermediate, thunk));
+    }
+
+    public static <S, A extends Action<S, ?, A>> Fst<S, A> async(Producer<A> producer) {
+        Deferred<A> result = new Deferred<>();
+        producer.accept(result);
+        return async(result::get);
+    }
+
+    public static <S, A extends Action<S, ?, A>> Fst<S, A> async(S intermediate, Producer<A> producer) {
+        Deferred<A> result = new Deferred<>();
+        producer.accept(result);
+        return async(intermediate, result::get);
     }
 
     /**
