@@ -73,7 +73,7 @@ public class Deferred<T> implements Future<T> {
     {
         boolean timed = timeout > 0;
         long remaining = unit.toNanos(timeout);
-        while (true) {
+        while (true) synchronized (lock) {
             switch (status) {
                 case READY: return value;
                 case CANCELLED: throw new CancellationException();
@@ -82,15 +82,13 @@ public class Deferred<T> implements Future<T> {
                     if (timed && remaining <= 0) {
                         throw new TimeoutException();
                     }
-                    synchronized (lock) {
-                        if (!timed) lock.wait();
-                        else {
-                            long start = System.nanoTime();
-                            TimeUnit.NANOSECONDS.timedWait(lock, remaining);
-                            // account for spurious wakeup
-                            long elapsed = System.nanoTime() - start;
-                            remaining -= elapsed;
-                        }
+                    if (!timed) lock.wait();
+                    else {
+                        long start = System.nanoTime();
+                        TimeUnit.NANOSECONDS.timedWait(lock, remaining);
+                        // account for spurious wakeup
+                        long elapsed = System.nanoTime() - start;
+                        remaining -= elapsed;
                     }
             }
         }

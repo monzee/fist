@@ -6,7 +6,6 @@ package ph.codeia.fist;
 
 import java.lang.ref.WeakReference;
 import java.util.Queue;
-import java.util.WeakHashMap;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -23,7 +22,6 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
 {
     private final Queue<Future<A>> backlog = new ConcurrentLinkedQueue<>();
     private final Queue<Future<?>> joins = new ConcurrentLinkedQueue<>();
-    private final WeakHashMap<Fst.Daemon<S>, Boolean> daemons = new WeakHashMap<>();
     private final ExecutorService joiner;
     private final ExecutorService workers;
     private final A enter;
@@ -149,6 +147,8 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
                         if (actor == null) {
                             throw new CancellationException("Actor is gone.");
                         }
+                        // TODO: allocation in a potentially tight loop;
+                        // figure out how to do this with plain monitors
                         Deferred<S> ds = new Deferred<>();
                         runOnMainThread(() -> {
                             receiver.apply(mutator.fold(state), actor)

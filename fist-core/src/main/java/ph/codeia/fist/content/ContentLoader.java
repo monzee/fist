@@ -8,6 +8,19 @@ import ph.codeia.fist.Fst;
 
 public abstract class ContentLoader<T> implements Loadable<T> {
 
+    public interface Fetch<T> {
+        T fetch() throws Exception;
+    }
+
+    public static <T> ContentLoader<T> of(Fetch<T> f) {
+        return new ContentLoader<T>() {
+            @Override
+            protected T onFetch() throws Exception {
+                return f.fetch();
+            }
+        };
+    }
+
     @Override
     public Fst<Loadable<T>, LoadEvent<T>> render(ContentView<T> actor) {
         if (actor.willFetch(ContentView.Event.BEGIN, null)) {

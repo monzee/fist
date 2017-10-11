@@ -26,20 +26,15 @@ public class LoadableContent extends AppCompatActivity implements ContentView<St
 
     private static class Scope {
         final Random rng = new Random();
-        final ContentLoader<String> controller = new ContentLoader<String>() {
-            @Override
-            @Nullable
-            @WorkerThread
-            protected String onFetch() throws InterruptedException {
-                Thread.sleep(10_000);
-                if (rng.nextBoolean()) {
-                    return "Lorem ipsum dolor sit amet";
-                }
-                else {
-                    return null;
-                }
+        final ContentLoader<String> controller = ContentLoader.of(() -> {
+            Thread.sleep(10_000);
+            if (rng.nextBoolean()) {
+                return "Lorem ipsum dolor sit amet";
             }
-        };
+            else {
+                return null;
+            }
+        });
         final Fst.Machine<Loadable<String>, ContentView<String>, LoadEvent<String>> screen =
                 new AndroidMachine<>(Loadable::render, controller);
     }
@@ -141,4 +136,5 @@ public class LoadableContent extends AppCompatActivity implements ContentView<St
     private void tell(String message) {
         Toast.makeText(this, message, Toast.LENGTH_SHORT).show();
     }
+
 }
