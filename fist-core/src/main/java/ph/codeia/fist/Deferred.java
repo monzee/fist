@@ -36,6 +36,31 @@ public class Deferred<T> implements Future<T> {
         }
     }
 
+    public T take() throws InterruptedException, ExecutionException {
+        try {
+            return take(0, TimeUnit.MILLISECONDS);
+        }
+        catch (TimeoutException e) {
+            throw new IllegalStateException("impossible.");
+        }
+    }
+
+    public T take(long timeout, TimeUnit unit)
+            throws InterruptedException, ExecutionException,
+            TimeoutException
+    {
+        synchronized (lock) {
+            try {
+                return get(timeout, unit);
+            }
+            finally {
+                status = Status.WAITING;
+                value = null;
+                error = null;
+            }
+        }
+    }
+
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
         if (status != Status.WAITING) return false;
@@ -69,7 +94,7 @@ public class Deferred<T> implements Future<T> {
     @Override
     public T get(long timeout, TimeUnit unit)
             throws InterruptedException, ExecutionException,
-            TimeoutException, CancellationException
+            TimeoutException
     {
         boolean timed = timeout > 0;
         long remaining = unit.toNanos(timeout);

@@ -58,7 +58,7 @@ public class AutoUpdate extends AppCompatActivity implements Periodic.View {
 
     @Override
     public void render(boolean active, int last) {
-        message.setText("" + last);
+        message.setText(Integer.toString(last));
         if (active) {
             message.setTextColor(Color.CYAN);
             toggle.setText("Stop");
@@ -97,7 +97,8 @@ interface Periodic extends Fst.Action<Periodic.Model, Periodic.View, Periodic> {
         @Override
         public Fst<Model, Periodic> apply(Model state, View actor) {
             actor.render(state.running, state.last);
-            if (!state.running) return Fst.noop();
+            Fst<Model, Periodic> noop = Fst.noop();
+            if (!state.running) return noop;
             else return Fst.stream(ch -> {
                 while (true) {
                     boolean running = ch.send(m -> {
@@ -111,7 +112,7 @@ interface Periodic extends Fst.Action<Periodic.Model, Periodic.View, Periodic> {
                 }
             }, (m, v) -> {
                 v.render(m.running, m.last);
-                return Fst.noop();
+                return noop;
             });
         }
 

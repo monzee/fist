@@ -79,7 +79,7 @@ public final class Fst<S, A extends Fst.Action<? super S, ?, ? extends A>> {
     }
 
     public interface Channel<T> {
-        T send(Mutate<T> f) throws ExecutionException, InterruptedException, CancellationException;
+        T send(Mutate<T> f) throws ExecutionException, InterruptedException;
     }
 
     public interface Daemon<T> {

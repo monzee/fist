@@ -78,7 +78,10 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
     public void stop() {
         isStarted = false;
         for (AtomicReference<Future<?>> join : joins) {
-            join.get().cancel(true);
+            Future<?> future = join.get();
+            if (future != null) {
+                future.cancel(true);
+            }
         }
     }
 
@@ -137,31 +140,11 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
 
                 @Override
                 public void stream(Fst.Daemon<S> proc, A receiver) {
-                    Fst.Channel<S> channel = mutator -> {
-                        O actor = weakActor.get();
-                        if (actor == null) {
-                            throw new CancellationException("Actor is gone.");
-                        }
-                        // TODO: allocation in a potentially tight loop;
-                        // figure out how to do this with plain monitors
-                        Deferred<S> ds = new Deferred<>();
-                        runOnMainThread(() -> {
-                            try {
-                                receiver.apply(mutator.fold(state), actor)
-                                        .match(this);
-                                ds.ok(state);
-                            }
-                            catch (RuntimeException e) {
-                                ds.err(e);
-                            }
-                        });
-                        return ds.get();
-                    };
                     AtomicReference<Future<?>> join = new AtomicReference<>();
                     joins.add(join);
                     join.set(workers.submit(() -> {
                         try {
-                            proc.accept(channel);
+                            proc.accept(new Channel(receiver, this));
                         }
                         catch (InterruptedException ignored) {
                         }
@@ -178,6 +161,47 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
                             join.set(null);
                         }
                     }));
+                }
+
+                class Channel implements Fst.Channel<S>, Runnable {
+                    final Deferred<S> barrier = new Deferred<>();
+                    final A receiver;
+                    final Fst.Case<S, A> selector;
+                    Fst.Mutate<S> mutate;
+                    O actor;
+
+                    Channel(A receiver, Fst.Case<S, A> selector) {
+                        this.receiver = receiver;
+                        this.selector = selector;
+                    }
+
+                    @Override
+                    public void run() {
+                        try {
+                            receiver.apply(mutate.fold(state), actor).match(selector);
+                            barrier.ok(state);
+                        }
+                        catch (RuntimeException e) {
+                            barrier.err(e);
+                        }
+                    }
+
+                    @Override
+                    public S send(Fst.Mutate<S> f) throws ExecutionException, InterruptedException {
+                        actor = weakActor.get();
+                        if (actor == null) {
+                            throw new CancellationException("Actor is gone.");
+                        }
+                        mutate = f;
+                        runOnMainThread(this);
+                        try {
+                            return barrier.take();
+                        }
+                        finally {
+                            actor = null;
+                            mutate = null;
+                        }
+                    }
                 }
             });
         });
