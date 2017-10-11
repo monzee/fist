@@ -58,10 +58,11 @@ public class AsyncMachineTest {
 
     @Before
     public void handleMainThreadExns() throws ExecutionException, InterruptedException {
-        MAIN.submit(() -> Thread
-                .currentThread()
-                .setUncaughtExceptionHandler((t, e) -> mainThreadError = e))
-                .get();
+        MAIN.submit(() -> {
+            Thread t = Thread.currentThread();
+            t.setUncaughtExceptionHandler((_t, e) -> mainThreadError = e);
+            t.setPriority(Thread.MIN_PRIORITY);
+        }).get();
     }
 
     @After

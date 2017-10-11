@@ -21,7 +21,7 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
         implements Fst.Machine<S, O, A>
 {
     private final Queue<Future<A>> backlog = new ConcurrentLinkedQueue<>();
-    private final Queue<Future<?>> joins = new ConcurrentLinkedQueue<>();
+    private final Queue<AtomicReference<Future<?>>> joins = new ConcurrentLinkedQueue<>();
     private final ExecutorService joiner;
     private final ExecutorService workers;
     private final A enter;
@@ -77,8 +77,8 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
     @Override
     public void stop() {
         isStarted = false;
-        for (Future<?> join : joins) {
-            join.cancel(true);
+        for (AtomicReference<Future<?>> join : joins) {
+            join.get().cancel(true);
         }
     }
 
@@ -135,14 +135,9 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
                     async(thunk);
                 }
 
-                public void async(Fst.Producer<A> producer) {
-
-                }
-
                 @Override
                 public void stream(Fst.Daemon<S> proc, A receiver) {
-                    AtomicReference<Future<?>> join = new AtomicReference<>();
-                    Fst.Channel<S> tx = mutator -> {
+                    Fst.Channel<S> channel = mutator -> {
                         O actor = weakActor.get();
                         if (actor == null) {
                             throw new CancellationException("Actor is gone.");
@@ -151,36 +146,38 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
                         // figure out how to do this with plain monitors
                         Deferred<S> ds = new Deferred<>();
                         runOnMainThread(() -> {
-                            receiver.apply(mutator.fold(state), actor)
-                                    .match(this);
-                            ds.ok(state);
+                            try {
+                                receiver.apply(mutator.fold(state), actor)
+                                        .match(this);
+                                ds.ok(state);
+                            }
+                            catch (RuntimeException e) {
+                                ds.err(e);
+                            }
                         });
                         return ds.get();
                     };
-                    synchronized (joins) {
-                        join.set(workers.submit(() -> {
-                            try {
-                                proc.accept(tx);
-                            }
-                            catch (InterruptedException ignored) {
-                            }
-                            catch (Exception e) {
-                                runOnMainThread(() -> {
-                                    O actor = weakActor.get();
-                                    if (actor != null) {
-                                        actor.handle(e);
-                                    }
-                                });
-                            }
-                            finally {
-                                synchronized (joins) {
-                                    joins.remove(join.get());
+                    AtomicReference<Future<?>> join = new AtomicReference<>();
+                    joins.add(join);
+                    join.set(workers.submit(() -> {
+                        try {
+                            proc.accept(channel);
+                        }
+                        catch (InterruptedException ignored) {
+                        }
+                        catch (Exception e) {
+                            runOnMainThread(() -> {
+                                O actor = weakActor.get();
+                                if (actor != null) {
+                                    actor.handle(e);
                                 }
-                                join.set(null);
-                            }
-                        }));
-                        joins.add(join.get());
-                    }
+                            });
+                        }
+                        finally {
+                            joins.remove(join);
+                            join.set(null);
+                        }
+                    }));
                 }
             });
         });
@@ -188,40 +185,32 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
 
     private void join(WeakReference<O> weakActor, Future<A> job) {
         AtomicReference<Future<?>> join = new AtomicReference<>();
-        synchronized (joins) {
-            join.set(joiner.submit(() -> {
-                try {
-                    A action = job.get(60, TimeUnit.SECONDS);
-                    backlog.remove(job);
+        joins.add(join);
+        join.set(joiner.submit(() -> {
+            try {
+                A action = job.get(60, TimeUnit.SECONDS);
+                backlog.remove(job);  // should this be inside the if?
+                O actor = weakActor.get();
+                if (actor != null) {
+                    exec(actor, action);
+                }
+            }
+            catch (InterruptedException ignored) {
+            }
+            catch (ExecutionException | TimeoutException e) {
+                backlog.remove(job);
+                job.cancel(true);  // interrupt timed out task
+                runOnMainThread(() -> {
                     O actor = weakActor.get();
                     if (actor != null) {
-                        exec(actor, action);
+                        actor.handle(e);
                     }
-                    // should i just lose the result if the view
-                    // gets GC'd or put the new action in the backlog?
-                    // this would really only happen when you forget
-                    // to stop the machine before exiting
-                }
-                catch (InterruptedException ignored) {
-                }
-                catch (ExecutionException|TimeoutException e) {
-                    backlog.remove(job);
-                    job.cancel(true);  // interrupt timed out task
-                    runOnMainThread(() -> {
-                        O actor = weakActor.get();
-                        if (actor != null) {
-                            actor.handle(e);
-                        }
-                    });
-                }
-                finally {
-                    synchronized (joins) {
-                        joins.remove(join.get());
-                    }
-                    join.set(null);
-                }
-            }));
-            joins.add(join.get());
-        }
+                });
+            }
+            finally {
+                joins.remove(join);
+                join.set(null);
+            }
+        }));
     }
 }

@@ -98,9 +98,9 @@ interface Periodic extends Fst.Action<Periodic.Model, Periodic.View, Periodic> {
         public Fst<Model, Periodic> apply(Model state, View actor) {
             actor.render(state.running, state.last);
             if (!state.running) return Fst.noop();
-            else return Fst.stream(tx -> {
+            else return Fst.stream(ch -> {
                 while (true) {
-                    boolean running = tx.send(m -> {
+                    boolean running = ch.send(m -> {
                         if (m.running) {
                             m.last++;
                         }

@@ -25,11 +25,11 @@ import ph.codeia.fist.R;
 public class PlainAsync extends AppCompatActivity {
 
     private static final ExecutorService WORKERS = Executors.newCachedThreadPool();
+    private static final Random RNG = new Random();
 
     private enum State { BEGIN, LOADING, LOADED, NOTHING, REFRESHING }
 
     private static class Scope {
-        final Random rng = new Random();
         Future<String> pendingFetch;
         State state = State.BEGIN;
         String text;
@@ -55,7 +55,7 @@ public class PlainAsync extends AppCompatActivity {
         setContentView(R.layout.activity_strawman);
         message = (TextView) findViewById(R.id.the_message);
         refresh = (Button) findViewById(R.id.do_refresh);
-        refresh.setOnClickListener(_v -> join(load()));
+        refresh.setOnClickListener(_v -> load());
     }
 
     @Override
@@ -75,7 +75,35 @@ public class PlainAsync extends AppCompatActivity {
         }
     }
 
-    Future<String> load() {
+    void render() {
+        switch (my.state) {
+            case BEGIN:
+                load();
+                break;
+            case LOADING:
+                message.setText("please wait...");
+                refresh.setText("Load");
+                refresh.setEnabled(false);
+                break;
+            case NOTHING:
+                message.setText("?");
+                refresh.setText("Load");
+                refresh.setEnabled(true);
+                break;
+            case LOADED:
+                message.setText(my.text);
+                refresh.setText("Refresh");
+                refresh.setEnabled(true);
+                break;
+            case REFRESHING:
+                message.setText(my.text);
+                refresh.setText("Refresh");
+                refresh.setEnabled(false);
+                break;
+        }
+    }
+
+    void load() {
         switch (my.state) {
             case BEGIN:
                 tell("Hello, world!");
@@ -90,18 +118,18 @@ public class PlainAsync extends AppCompatActivity {
                 my.state = State.REFRESHING;
                 break;
             default:
-                return null;
+                return;
         }
         render();
-        return WORKERS.submit(() -> {
+        join(WORKERS.submit(() -> {
             Thread.sleep(10_000);
-            if (my.rng.nextBoolean()) {
+            if (RNG.nextBoolean()) {
                 return "Lorem ipsum dolor sit amet";
             }
             else {
                 return null;
             }
-        });
+        }));
     }
 
     void join(Future<String> task) {
@@ -152,34 +180,6 @@ public class PlainAsync extends AppCompatActivity {
             }
         };
         pendingJoin.execute();
-    }
-
-    void render() {
-        switch (my.state) {
-            case BEGIN:
-                join(load());
-                break;
-            case LOADING:
-                message.setText("please wait...");
-                refresh.setText("Load");
-                refresh.setEnabled(false);
-                break;
-            case NOTHING:
-                message.setText("?");
-                refresh.setText("Load");
-                refresh.setEnabled(true);
-                break;
-            case LOADED:
-                message.setText(my.text);
-                refresh.setText("Refresh");
-                refresh.setEnabled(true);
-                break;
-            case REFRESHING:
-                message.setText(my.text);
-                refresh.setText("Refresh");
-                refresh.setEnabled(false);
-                break;
-        }
     }
 
     void tell(String message) {
