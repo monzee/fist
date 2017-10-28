@@ -17,7 +17,7 @@ public interface ContentView<T> extends Fst.ErrorHandler {
      *                to {@code Event.REFRESH}
      * @return true to start fetching, false to abort
      */
-    boolean willFetch(Event from, T current);
+    boolean canFetch(Event from, T current);
 
     /**
      * Executed after a successful fetch before entering {@link #loaded(Object)}

@@ -114,7 +114,7 @@ public class AsyncMachineTest {
         Fst.Machine<Integer, Printer, Action> sm = start(0, p, NOOP);
         sm.exec(p, (_n, _a) -> Fst.stream(tx -> {
             while (true) {
-                tx.send(n -> n + 1);
+                tx.exchange(n -> n + 1);
                 Thread.sleep(16);
             }
         }, (Action) (n, a) -> {
@@ -176,7 +176,7 @@ public class AsyncMachineTest {
         sm.exec(p, (_a, _b) -> Fst.stream(tx -> {
             try {
                 while (true) {
-                    tx.send(n -> n);
+                    tx.exchange(n -> n);
                     Thread.sleep(16);
                 }
             }

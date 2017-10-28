@@ -4,26 +4,24 @@ package ph.codeia.fist.content;
  * This file is a part of the fist project.
  */
 
+import java.util.concurrent.Callable;
+
 import ph.codeia.fist.Fst;
 
 public abstract class ContentLoader<T> implements Loadable<T> {
 
-    public interface Fetch<T> {
-        T fetch() throws Exception;
-    }
-
-    public static <T> ContentLoader<T> of(Fetch<T> f) {
+    public static <T> ContentLoader<T> of(Callable<T> fetch) {
         return new ContentLoader<T>() {
             @Override
             protected T onFetch() throws Exception {
-                return f.fetch();
+                return fetch.call();
             }
         };
     }
 
     @Override
     public Fst<Loadable<T>, LoadEvent<T>> render(ContentView<T> actor) {
-        if (actor.willFetch(ContentView.Event.BEGIN, null)) {
+        if (actor.canFetch(ContentView.Event.BEGIN, null)) {
             return Fst.async(ContentView::loading, this::fetch);
         }
         else {
@@ -35,7 +33,7 @@ public abstract class ContentLoader<T> implements Loadable<T> {
         return (state, actor) -> state.render(new Case<T>() {
             @Override
             public Fst<Loadable<T>, LoadEvent<T>> empty() {
-                if (actor.willFetch(Event.LOAD, null)) {
+                if (actor.canFetch(Event.LOAD, null)) {
                     return Fst.async(ContentView::loading, ContentLoader.this::fetch);
                 }
                 else {
@@ -45,7 +43,7 @@ public abstract class ContentLoader<T> implements Loadable<T> {
 
             @Override
             public Fst<Loadable<T>, LoadEvent<T>> loaded(T content) {
-                if (actor.willFetch(Event.REFRESH, content)) {
+                if (actor.canFetch(Event.REFRESH, content)) {
                     return Fst.async(e -> e.refreshing(content), ContentLoader.this::fetch);
                 }
                 else {
@@ -70,20 +68,20 @@ public abstract class ContentLoader<T> implements Loadable<T> {
         try {
             T t = onFetch();
             if (t != null) {
-                return (s, v) -> {
-                    v.didFetch(false);
+                return (s, actor) -> {
+                    actor.didFetch(false);
                     return Fst.enter(e -> e.loaded(t));
                 };
             }
             else {
-                return (s, v) -> {
-                    v.didFetch(true);
+                return (s, actor) -> {
+                    actor.didFetch(true);
                     return Fst.enter(ContentView::empty);
                 };
             }
         }
         catch (Exception e) {
-            return (s, v) -> Fst.raise(e);
+            return (s, a) -> Fst.raise(e);
         }
     }
 

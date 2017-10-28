@@ -20,25 +20,56 @@ import java.util.concurrent.atomic.AtomicReference;
 public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.Action<S, O, A>>
         implements Fst.Machine<S, O, A>
 {
+    private static final long DEFAULT_TIMEOUT = 60_000;
+
     private final Queue<Future<A>> backlog = new ConcurrentLinkedQueue<>();
     private final Queue<AtomicReference<Future<?>>> joins = new ConcurrentLinkedQueue<>();
     private final ExecutorService joiner;
     private final ExecutorService workers;
     private final A enter;
+    private final long timeout;
     private S state;
     private boolean isStarted = false;  // volatile?
 
     /**
      * @param enter The entry function
      * @param state The initial state
+     * @param timeout Maximum number of milliseconds to wait for async actions
+     *                to finish
      * @param joiner This should be a single thread executor
      * @param workers Thread pool for background tasks
      */
-    public AsyncMachine(A enter, S state, ExecutorService joiner, ExecutorService workers) {
+    public AsyncMachine(
+            A enter, S state, long timeout,
+            ExecutorService joiner, ExecutorService workers
+    ) {
         this.enter = enter;
         this.state = state;
+        this.timeout = timeout;
         this.joiner = joiner;
         this.workers = workers;
+    }
+
+    /**
+     * @see #AsyncMachine(Fst.Action, Object, long, ExecutorService, ExecutorService)
+     */
+    public AsyncMachine(
+            A enter, S state, long timeout, TimeUnit unit,
+            ExecutorService joiner, ExecutorService workers
+    ) {
+        this(enter, state, unit.toMillis(timeout), joiner, workers);
+    }
+
+    /**
+     * Sets timeout to 60 seconds.
+     *
+     * @see #AsyncMachine(Fst.Action, Object, long, ExecutorService, ExecutorService)
+     */
+    public AsyncMachine(
+            A enter, S state,
+            ExecutorService joiner, ExecutorService workers
+    ) {
+        this(enter, state, DEFAULT_TIMEOUT, joiner, workers);
     }
 
     /**
@@ -51,10 +82,30 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
      *
      * @param enter The entry function
      * @param state The initial state
-     * @see #AsyncMachine(Fst.Action, Object, ExecutorService, ExecutorService)
+     * @param timeout Maximum number of milliseconds to wait for async actions
+     *                to finish
+     * @see #AsyncMachine(Fst.Action, Object, long, ExecutorService, ExecutorService)
+     */
+    public AsyncMachine(A enter, S state, long timeout) {
+        this(enter, state, timeout,
+                Executors.newSingleThreadExecutor(),
+                Executors.newSingleThreadExecutor());
+    }
+
+    /**
+     * @see #AsyncMachine(Fst.Action, Object, long)
+     */
+    public AsyncMachine(A enter, S state, long timeout, TimeUnit unit) {
+        this(enter, state, unit.toMillis(timeout));
+    }
+
+    /**
+     * Sets timeout to 60 seconds.
+     *
+     * @see #AsyncMachine(Fst.Action, Object, long)
      */
     public AsyncMachine(A enter, S state) {
-        this(enter, state, Executors.newSingleThreadExecutor(), Executors.newSingleThreadExecutor());
+        this(enter, state, DEFAULT_TIMEOUT);
     }
 
     /**
@@ -94,6 +145,10 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
             WeakReference<O> weakActor = new WeakReference<>(actor);
             action.apply(state, actor).match(new Fst.Case<S, A>() {
                 @Override
+                public void noop() {
+                }
+
+                @Override
                 public void enter(S newState) {
                     state = newState;
                     enter.apply(state, weakActor.get()).match(this);
@@ -114,10 +169,6 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
                     O actor = weakActor.get();
                     assert actor != null;
                     actor.handle(error);
-                }
-
-                @Override
-                public void noop() {
                 }
 
                 @Override
@@ -167,7 +218,7 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
                     final Deferred<S> barrier = new Deferred<>();
                     final A receiver;
                     final Fst.Case<S, A> selector;
-                    Fst.Mutate<S> mutate;
+                    Fst.Fold<S> fold;
                     O actor;
 
                     Channel(A receiver, Fst.Case<S, A> selector) {
@@ -178,7 +229,8 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
                     @Override
                     public void run() {
                         try {
-                            receiver.apply(mutate.fold(state), actor).match(selector);
+                            receiver.apply(fold.apply(state), actor)
+                                    .match(selector);
                             barrier.ok(state);
                         }
                         catch (RuntimeException e) {
@@ -187,19 +239,21 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
                     }
 
                     @Override
-                    public S send(Fst.Mutate<S> f) throws ExecutionException, InterruptedException {
+                    public S exchange(Fst.Fold<S> f)
+                            throws ExecutionException, InterruptedException
+                    {
                         actor = weakActor.get();
                         if (actor == null) {
                             throw new CancellationException("Actor is gone.");
                         }
-                        mutate = f;
+                        fold = f;
                         runOnMainThread(this);
                         try {
                             return barrier.take();
                         }
                         finally {
                             actor = null;
-                            mutate = null;
+                            fold = null;
                         }
                     }
                 }
@@ -212,7 +266,7 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
         joins.add(join);
         join.set(joiner.submit(() -> {
             try {
-                A action = job.get(60, TimeUnit.SECONDS);
+                A action = job.get(timeout, TimeUnit.MILLISECONDS);
                 backlog.remove(job);  // should this be inside the if?
                 O actor = weakActor.get();
                 if (actor != null) {

@@ -6,7 +6,6 @@ package ph.codeia.fist.sample;
 
 import android.os.Bundle;
 import android.support.annotation.Nullable;
-import android.support.annotation.WorkerThread;
 import android.support.v7.app.AppCompatActivity;
 import android.widget.Button;
 import android.widget.TextView;
@@ -74,7 +73,7 @@ public class LoadableContent extends AppCompatActivity implements ContentView<St
     }
 
     @Override
-    public boolean willFetch(Event from, String current) {
+    public boolean canFetch(Event from, String current) {
         switch (from) {
             case BEGIN:
                 tell("Hello, world!");

@@ -36,6 +36,10 @@ public class BlockingMachine<S, O extends Fst.ErrorHandler, A extends Fst.Action
         }
         action.apply(state, actor).match(new Fst.Case<S, A>() {
             @Override
+            public void noop() {
+            }
+
+            @Override
             public void enter(S newState) {
                 state = newState;
                 exec(actor, enter);
@@ -54,10 +58,6 @@ public class BlockingMachine<S, O extends Fst.ErrorHandler, A extends Fst.Action
             @Override
             public void raise(Throwable error) {
                 actor.handle(error);
-            }
-
-            @Override
-            public void noop() {
             }
 
             @Override

@@ -8,6 +8,9 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.SpannableStringBuilder;
 import android.widget.Button;
 import android.widget.TextView;
 
@@ -15,7 +18,7 @@ import ph.codeia.fist.AndroidMachine;
 import ph.codeia.fist.Fst;
 import ph.codeia.fist.R;
 
-public class AutoUpdate extends AppCompatActivity implements Periodic.View {
+public class LiveCounter extends AppCompatActivity implements Periodic.View {
     private static class Scope {
         final Periodic.Presenter actions = new Periodic.Presenter();
         final Fst.Machine<Periodic.Model, Periodic.View, Periodic> screen =
@@ -86,6 +89,10 @@ interface Periodic extends Fst.Action<Periodic.Model, Periodic.View, Periodic> {
     class Model {
         private boolean running = false;
         private int last = 0;
+        private Model succ() {
+            last++;
+            return this;
+        }
     }
 
     interface View extends Fst.ErrorHandler {
@@ -97,22 +104,17 @@ interface Periodic extends Fst.Action<Periodic.Model, Periodic.View, Periodic> {
         @Override
         public Fst<Model, Periodic> apply(Model state, View actor) {
             actor.render(state.running, state.last);
-            Fst<Model, Periodic> noop = Fst.noop();
-            if (!state.running) return noop;
-            else return Fst.stream(ch -> {
-                while (true) {
-                    boolean running = ch.send(m -> {
-                        if (m.running) {
-                            m.last++;
-                        }
-                        return m;
-                    }).running;
-                    if (running) Thread.sleep(100);
-                    else break;
+            return state.running ? start() : Fst.noop();
+        }
+
+        Fst<Model, Periodic> start() {
+            return Fst.stream(ch -> {
+                while (ch.exchange(Model::succ).running) {
+                    Thread.sleep(100);
                 }
             }, (m, v) -> {
                 v.render(m.running, m.last);
-                return noop;
+                return Fst.noop();
             });
         }
 

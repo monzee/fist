@@ -4,6 +4,7 @@ package ph.codeia.fist.sample;
  * This file is a part of the fist project.
  */
 
+import android.annotation.SuppressLint;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
@@ -132,6 +133,7 @@ public class PlainAsync extends AppCompatActivity {
         }));
     }
 
+    @SuppressLint("StaticFieldLeak")
     void join(Future<String> task) {
         if (task == null) {
             return;
@@ -147,7 +149,7 @@ public class PlainAsync extends AppCompatActivity {
                 }
                 catch (InterruptedException ignored) {
                 }
-                catch (ExecutionException|TimeoutException e) {
+                catch (ExecutionException | TimeoutException e) {
                     task.cancel(true);
                     my.pendingFetch = null;
                     publishProgress(e);

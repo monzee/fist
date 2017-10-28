@@ -14,7 +14,7 @@ public interface Loadable<T> extends Fst.Moore<Loadable<T>, ContentView<T>, Load
         }
 
         @Override
-        public boolean willFetch(Event from, T current) {
+        public boolean canFetch(Event from, T current) {
             return true;
         }
 
