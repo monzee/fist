@@ -94,6 +94,11 @@ public abstract class AsyncRunner<S> implements Cmd.Runner<S> {
         }));
     }
 
+    @Override
+    public <T> T inspect(Cmd.Function<S, T> projection) {
+        return projection.apply(state);
+    }
+
     private void join(
             WeakReference<Cmd.Context<S>> weakContext,
             Future<Cmd.Action<S>> work
@@ -103,9 +108,9 @@ public abstract class AsyncRunner<S> implements Cmd.Runner<S> {
             try {
                 Cmd.Action<S> action = work.get(60, TimeUnit.SECONDS);
                 backlog.remove(work);
-                Cmd.Context<S> adapter = weakContext.get();
-                if (adapter != null) {
-                    exec(adapter, action);
+                Cmd.Context<S> context = weakContext.get();
+                if (context != null) {
+                    exec(context, action);
                 }
             }
             catch (InterruptedException ignored) {

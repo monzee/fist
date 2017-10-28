@@ -171,6 +171,7 @@ public final class Cmd<S> {
         void start(Context<S> context);
         void stop();
         void exec(Context<S> context, Action<S> action);
+        <T> T inspect(Function<S, T> projection);
     }
 
     public interface Context<S> {
@@ -185,6 +186,16 @@ public final class Cmd<S> {
 
     public interface ErrorHandler {
         void handle(Throwable e);
+
+        ErrorHandler IGNORE = e -> {};
+
+        ErrorHandler RETHROW = e -> {
+            throw new RuntimeException(e);
+        };
+    }
+
+    public interface Function<S, T> {
+        T apply(S s);
     }
 }
 

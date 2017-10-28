@@ -67,4 +67,9 @@ public class BlockingRunner<S> implements Cmd.Runner<S> {
             }
         });
     }
+
+    @Override
+    public <T> T inspect(Cmd.Function<S, T> projection) {
+        return projection.apply(state);
+    }
 }
