@@ -1,4 +1,4 @@
-package ph.codeia.fist;
+package ph.codeia.fistdemo;
 
 import android.app.Application;
 
