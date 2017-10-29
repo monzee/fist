@@ -20,7 +20,7 @@ public class ExecutorRunner<S> extends AsyncRunner<S> {
     }
 
     @Override
-    protected void handle(Throwable e, Cmd.Context<S> context) {
+    protected void handle(Throwable e, Mu.Context<S> context) {
         main.execute(() -> {
             throw new RuntimeException(e);
         });

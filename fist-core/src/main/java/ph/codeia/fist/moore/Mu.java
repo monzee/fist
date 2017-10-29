@@ -33,30 +33,30 @@ import java.util.concurrent.Callable;
  * @author Mon Zafra
  * @since 0.1.0
  */
-public final class Cmd<S> {
+public final class Mu<S> {
 
-    public static <S> Cmd<S> noop() {
-        return new Cmd<>(Processor::noop);
+    public static <S> Mu<S> noop() {
+        return new Mu<>(Processor::noop);
     }
 
-    public static <S> Cmd<S> enter(S newState) {
-        return new Cmd<>(sm -> sm.enter(newState));
+    public static <S> Mu<S> enter(S newState) {
+        return new Mu<>(sm -> sm.enter(newState));
     }
 
-    public static <S> Cmd<S> reenter() {
-        return new Cmd<>(Processor::reenter);
+    public static <S> Mu<S> reenter() {
+        return new Mu<>(Processor::reenter);
     }
 
-    public static <S> Cmd<S> reduce(Action<S> action) {
-        return new Cmd<>(sm -> sm.reduce(action));
+    public static <S> Mu<S> reduce(Action<S> action) {
+        return new Mu<>(sm -> sm.reduce(action));
     }
 
-    public static <S> Cmd<S> reduce(Callable<Action<S>> thunk) {
-        return new Cmd<>(sm -> sm.reduce(thunk));
+    public static <S> Mu<S> reduce(Callable<Action<S>> thunk) {
+        return new Mu<>(sm -> sm.reduce(thunk));
     }
 
-    public static <S> Cmd<S> raise(Throwable e) {
-        return new Cmd<>(sm -> sm.raise(e));
+    public static <S> Mu<S> raise(Throwable e) {
+        return new Mu<>(sm -> sm.raise(e));
     }
 
     public static <S> Actor<S> bind(Runner<S> runner, Context<S> context) {
@@ -78,19 +78,19 @@ public final class Cmd<S> {
         };
     }
 
-    private final Delegate<S> delegate;
+    private final Command<S> command;
 
-    private Cmd(Delegate<S> delegate) {
-        this.delegate = delegate;
+    private Mu(Command<S> command) {
+        this.command = command;
     }
 
     public void run(Processor<S> machine) {
-        delegate.run(machine);
+        command.run(machine);
     }
 
-    public Cmd<S> then(Cmd<S> next) {
+    public Mu<S> then(Mu<S> next) {
         return new Processor<S>() {
-            Cmd<S> sum = Cmd.this;
+            Mu<S> merged = Mu.this;
 
             {
                 next.run(this);
@@ -102,7 +102,7 @@ public final class Cmd<S> {
 
             @Override
             public void enter(S newState) {
-                sum = new Cmd<>(sm -> {
+                merged = new Mu<>(sm -> {
                     run(sm);
                     sm.enter(newState);
                 });
@@ -110,7 +110,7 @@ public final class Cmd<S> {
 
             @Override
             public void reenter() {
-                sum = new Cmd<>(sm -> {
+                merged = new Mu<>(sm -> {
                     run(sm);
                     sm.reenter();
                 });
@@ -118,7 +118,7 @@ public final class Cmd<S> {
 
             @Override
             public void reduce(Action<S> action) {
-                sum = new Cmd<>(sm -> {
+                merged = new Mu<>(sm -> {
                     run(sm);
                     sm.reduce(action);
                 });
@@ -126,7 +126,7 @@ public final class Cmd<S> {
 
             @Override
             public void reduce(Callable<Action<S>> thunk) {
-                sum = new Cmd<>(sm -> {
+                merged = new Mu<>(sm -> {
                     run(sm);
                     sm.reduce(thunk);
                 });
@@ -134,28 +134,28 @@ public final class Cmd<S> {
 
             @Override
             public void raise(Throwable e) {
-                sum = new Cmd<>(sm -> {
+                merged = new Mu<>(sm -> {
                     run(sm);
                     sm.raise(e);
                 });
             }
-        }.sum;
+        }.merged;
     }
 
-    public Cmd<S> then(Action<S> action) {
+    public Mu<S> then(Action<S> action) {
         return then(reduce(action));
     }
 
-    public Cmd<S> then(Callable<Action<S>> thunk) {
+    public Mu<S> then(Callable<Action<S>> thunk) {
         return then(reduce(thunk));
     }
 
-    private interface Delegate<S> {
+    private interface Command<S> {
         void run(Processor<S> sm);
     }
 
     public interface Action<S> {
-        Cmd<S> apply(S state);
+        Mu<S> apply(S state);
     }
 
     public interface Processor<S> {

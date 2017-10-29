@@ -16,12 +16,12 @@ import java.util.Random;
 
 import ph.codeia.fist.AndroidRunner;
 import ph.codeia.fist.R;
-import ph.codeia.fist.moore.Cmd;
+import ph.codeia.fist.moore.Mu;
 
 public class GuessTheNumber extends AppCompatActivity {
 
-    private Cmd.Runner<Game> game;
-    private Cmd.Actor<Game> screen;
+    private Mu.Runner<Game> game;
+    private Mu.Actor<Game> screen;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -36,12 +36,13 @@ public class GuessTheNumber extends AppCompatActivity {
         EditText input = (EditText) findViewById(R.id.guess);
         input.setOnEditorActionListener((textView, i, keyEvent) -> {
             String text = textView.getText().toString();
-            if (text.isEmpty()) return false;
+            if (keyEvent != null || text.isEmpty()) return false;
             screen.exec(guess(Integer.parseInt(text)));
-            textView.setText(null);
-            return game.inspect(state -> Game.Result.IN_PLAY.contains(state.result));
+            boolean notDone = game.inspect(state -> Game.IN_PLAY.contains(state.result));
+            if (notDone) textView.setText(null);
+            return notDone;
         });
-        screen = Cmd.bind(game, state -> render(state, message));
+        screen = Mu.bind(game, state -> render(state, message));
     }
 
     @Override
@@ -63,6 +64,7 @@ public class GuessTheNumber extends AppCompatActivity {
 
     @SuppressLint({"DefaultLocale", "SetTextI18n"})
     static void render(Game state, TextView message) {
+        String tries = state.triesLeft == 1 ? "try" : "tries";
         switch (state.result) {
             case BEGIN:
                 message.setText(String.format(""
@@ -77,50 +79,49 @@ public class GuessTheNumber extends AppCompatActivity {
                 break;
             case LOW:
                 message.setText(String.format(
-                        "%d is too low; %d tries remaining.",
-                        state.guess, state.triesLeft));
+                        "%d is too low; %d %s remaining.",
+                        state.guess, state.triesLeft, tries));
                 break;
             case HIGH:
                 message.setText(String.format(
-                        "%d is too high; %d tries remaining.",
-                        state.guess, state.triesLeft));
+                        "%d is too high; %d %s remaining.",
+                        state.guess, state.triesLeft, tries));
                 break;
         }
     }
 
-    static Cmd.Action<Game> newGame() throws InterruptedException {
+    static Mu.Action<Game> newGame() throws InterruptedException {
         Thread.sleep(10_000);
-        return state -> Cmd.enter(new Game());
+        return state -> Mu.enter(new Game());
     }
 
-    static Cmd.Action<Game> guess(int n) {
+    static Mu.Action<Game> guess(int n) {
         return state -> {
             switch (state.result) {
                 case LOST:  // fallthrough
                 case WON:
-                    return Cmd.noop();
+                    return Mu.noop();
                 default:
-                    if (--state.triesLeft < 1) {
-                        state.result = Game.Result.LOST;
-                        return Cmd.enter(state).then(GuessTheNumber::newGame);
-                    }
                     if (n == state.secret) {
                         state.result = Game.Result.WON;
-                        return Cmd.enter(state).then(GuessTheNumber::newGame);
+                        return Mu.enter(state).then(GuessTheNumber::newGame);
+                    }
+                    if (state.triesLeft == 1) {
+                        state.result = Game.Result.LOST;
+                        return Mu.enter(state).then(GuessTheNumber::newGame);
                     }
                     state.guess = n;
                     state.result = n < state.secret ? Game.Result.LOW : Game.Result.HIGH;
-                    return Cmd.reenter();
+                    state.triesLeft--;
+                    return Mu.reenter();
             }
         };
     }
 
     private static class Game {
-        enum Result {
-            BEGIN, LOW, HIGH, WON, LOST;
-            static final EnumSet<Result> IN_PLAY = EnumSet.of(LOW, HIGH);
-        }
-        private static final Random RNG = new Random();
+        enum Result { BEGIN, LOW, HIGH, WON, LOST }
+        static final Random RNG = new Random();
+        static final EnumSet<Result> IN_PLAY = EnumSet.of(Result.LOW, Result.HIGH);
 
         Result result = Result.BEGIN;
         int secret = RNG.nextInt(100) + 1;

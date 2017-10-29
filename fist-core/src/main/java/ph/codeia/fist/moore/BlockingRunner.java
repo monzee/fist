@@ -6,7 +6,7 @@ package ph.codeia.fist.moore;
 
 import java.util.concurrent.Callable;
 
-public class BlockingRunner<S> implements Cmd.Runner<S> {
+public class BlockingRunner<S> implements Mu.Runner<S> {
 
     private S state;
     private boolean isRunning;
@@ -16,7 +16,7 @@ public class BlockingRunner<S> implements Cmd.Runner<S> {
     }
 
     @Override
-    public void start(Cmd.Context<S> context) {
+    public void start(Mu.Context<S> context) {
         if (isRunning) return;
         isRunning = true;
         context.onEnter(state);
@@ -28,9 +28,9 @@ public class BlockingRunner<S> implements Cmd.Runner<S> {
     }
 
     @Override
-    public void exec(Cmd.Context<S> context, Cmd.Action<S> action) {
+    public void exec(Mu.Context<S> context, Mu.Action<S> action) {
         if (!isRunning) return;
-        action.apply(state).run(new Cmd.Processor<S>() {
+        action.apply(state).run(new Mu.Processor<S>() {
             @Override
             public void noop() {
             }
@@ -47,12 +47,12 @@ public class BlockingRunner<S> implements Cmd.Runner<S> {
             }
 
             @Override
-            public void reduce(Cmd.Action<S> action) {
+            public void reduce(Mu.Action<S> action) {
                 exec(context, action);
             }
 
             @Override
-            public void reduce(Callable<Cmd.Action<S>> thunk) {
+            public void reduce(Callable<Mu.Action<S>> thunk) {
                 try {
                     exec(context, thunk.call());
                 }
@@ -69,7 +69,7 @@ public class BlockingRunner<S> implements Cmd.Runner<S> {
     }
 
     @Override
-    public <T> T inspect(Cmd.Function<S, T> projection) {
+    public <T> T inspect(Mu.Function<S, T> projection) {
         return projection.apply(state);
     }
 }

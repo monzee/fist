@@ -1,4 +1,4 @@
-package ph.codeia.fist.moore;
+package ph.codeia.fist.mealy;
 
 /*
  * This file is a part of the fist project.
@@ -16,30 +16,29 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
-public abstract class AsyncRunner<S> implements Mu.Runner<S> {
+import ph.codeia.fist.moore.Mu;
 
+public abstract class AsyncMealy<S, C extends Mi.Effects<S>> implements Mi.Runner<S, C> {
     private S state;
     private boolean isRunning;
-    private final ExecutorService joiner = Executors.newSingleThreadExecutor();
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
-    private final Queue<Future<Mu.Action<S>>> backlog = new ConcurrentLinkedQueue<>();
+    private final ExecutorService joiner = Executors.newSingleThreadExecutor();
+    private final Queue<Future<Mi.Action<S, C>>> backlog = new ConcurrentLinkedQueue<>();
     private final Queue<AtomicReference<Future<?>>> pending = new ConcurrentLinkedQueue<>();
 
-    public AsyncRunner(S state) {
+    public AsyncMealy(S state) {
         this.state = state;
     }
 
     protected abstract void runOnMainThread(Runnable proc);
 
-    protected abstract void handle(Throwable e, Mu.Context<S> context);
-
     @Override
-    public void start(Mu.Context<S> context) {
+    public void start(C context) {
         if (isRunning) return;
         isRunning = true;
-        WeakReference<Mu.Context<S>> weakContext = new WeakReference<>(context);
-        for (Future<Mu.Action<S>> work : backlog) {
-            join(weakContext, work);
+        WeakReference<C> weakContext = new WeakReference<>(context);
+        for (Future<Mi.Action<S, C>> work : backlog) {
+            join(work, weakContext);
         }
         context.onEnter(state);
     }
@@ -57,11 +56,16 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
     }
 
     @Override
-    public void exec(Mu.Context<S> context, Mu.Action<S> action) {
+    public void exec(C context, Mi.Action<S, C> action) {
         if (!isRunning) return;
-        runOnMainThread(() -> action.apply(state).run(new Mu.Processor<S>() {
+        runOnMainThread(() -> action.apply(state, context).run(new Mi.Machine<S, C>() {
             @Override
             public void noop() {
+            }
+
+            @Override
+            public void reenter() {
+                context.onEnter(state);
             }
 
             @Override
@@ -71,25 +75,20 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
             }
 
             @Override
-            public void reenter() {
-                context.onEnter(state);
+            public void reduce(Mi.Action<S, C> action) {
+                action.apply(state, context).run(this);
             }
 
             @Override
-            public void reduce(Mu.Action<S> action) {
-                action.apply(state).run(this);
-            }
-
-            @Override
-            public void reduce(Callable<Mu.Action<S>> thunk) {
-                Future<Mu.Action<S>> work = worker.submit(thunk);
+            public void reduce(Callable<Mi.Action<S, C>> thunk) {
+                Future<Mi.Action<S, C>> work = worker.submit(thunk);
                 backlog.add(work);
-                join(new WeakReference<>(context), work);
+                join(work, new WeakReference<>(context));
             }
 
             @Override
             public void raise(Throwable e) {
-                handle(e, context);
+                context.handle(e);
             }
         }));
     }
@@ -99,16 +98,13 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
         return projection.apply(state);
     }
 
-    private void join(
-            WeakReference<Mu.Context<S>> weakContext,
-            Future<Mu.Action<S>> work
-    ) {
+    private void join(Future<Mi.Action<S, C>> work, WeakReference<C> weakContext) {
         AtomicReference<Future<?>> joinRef = new AtomicReference<>();
         joinRef.set(joiner.submit(() -> {
             try {
-                Mu.Action<S> action = work.get(60, TimeUnit.SECONDS);
+                Mi.Action<S, C> action = work.get(60, TimeUnit.SECONDS);
                 backlog.remove(work);
-                Mu.Context<S> context = weakContext.get();
+                C context = weakContext.get();
                 if (context != null) {
                     exec(context, action);
                 }
@@ -118,7 +114,15 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
             catch (ExecutionException | TimeoutException e) {
                 backlog.remove(work);
                 work.cancel(true);
-                handle(e, weakContext.get());
+                runOnMainThread(() -> {
+                    C context = weakContext.get();
+                    if (context != null) {
+                        context.handle(e);
+                    }
+                    else {
+                        throw new RuntimeException(e);
+                    }
+                });
             }
             finally {
                 pending.remove(joinRef);
@@ -127,5 +131,4 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
         }));
         pending.add(joinRef);
     }
-
 }
