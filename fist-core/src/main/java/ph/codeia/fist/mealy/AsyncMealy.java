@@ -18,12 +18,12 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import ph.codeia.fist.moore.Mu;
 
-public abstract class AsyncMealy<S, C extends Mi.Effects<S>> implements Mi.Runner<S, C> {
+public abstract class AsyncMealy<S, E extends Mi.Effects<S>> implements Mi.Runner<S, E> {
     private S state;
     private boolean isRunning;
     private final ExecutorService worker = Executors.newSingleThreadExecutor();
     private final ExecutorService joiner = Executors.newSingleThreadExecutor();
-    private final Queue<Future<Mi.Action<S, C>>> backlog = new ConcurrentLinkedQueue<>();
+    private final Queue<Future<Mi.Action<S, E>>> backlog = new ConcurrentLinkedQueue<>();
     private final Queue<AtomicReference<Future<?>>> pending = new ConcurrentLinkedQueue<>();
 
     public AsyncMealy(S state) {
@@ -33,14 +33,14 @@ public abstract class AsyncMealy<S, C extends Mi.Effects<S>> implements Mi.Runne
     protected abstract void runOnMainThread(Runnable proc);
 
     @Override
-    public void start(C context) {
+    public void start(E effects) {
         if (isRunning) return;
         isRunning = true;
-        WeakReference<C> weakContext = new WeakReference<>(context);
-        for (Future<Mi.Action<S, C>> work : backlog) {
-            join(work, weakContext);
+        WeakReference<E> weakEffects = new WeakReference<>(effects);
+        for (Future<Mi.Action<S, E>> work : backlog) {
+            join(work, weakEffects);
         }
-        context.onEnter(state);
+        effects.onEnter(state);
     }
 
     @Override
@@ -56,39 +56,39 @@ public abstract class AsyncMealy<S, C extends Mi.Effects<S>> implements Mi.Runne
     }
 
     @Override
-    public void exec(C context, Mi.Action<S, C> action) {
+    public void exec(E effects, Mi.Action<S, E> action) {
         if (!isRunning) return;
-        runOnMainThread(() -> action.apply(state, context).run(new Mi.Machine<S, C>() {
+        runOnMainThread(() -> action.apply(state, effects).run(new Mi.Machine<S, E>() {
             @Override
             public void noop() {
             }
 
             @Override
             public void reenter() {
-                context.onEnter(state);
+                effects.onEnter(state);
             }
 
             @Override
             public void enter(S newState) {
                 state = newState;
-                context.onEnter(state);
+                effects.onEnter(state);
             }
 
             @Override
-            public void reduce(Mi.Action<S, C> action) {
-                action.apply(state, context).run(this);
+            public void forward(Mi.Action<S, E> action) {
+                action.apply(state, effects).run(this);
             }
 
             @Override
-            public void reduce(Callable<Mi.Action<S, C>> thunk) {
-                Future<Mi.Action<S, C>> work = worker.submit(thunk);
+            public void async(Callable<Mi.Action<S, E>> thunk) {
+                Future<Mi.Action<S, E>> work = worker.submit(thunk);
                 backlog.add(work);
-                join(work, new WeakReference<>(context));
+                join(work, new WeakReference<>(effects));
             }
 
             @Override
             public void raise(Throwable e) {
-                context.handle(e);
+                effects.handle(e);
             }
         }));
     }
@@ -98,15 +98,15 @@ public abstract class AsyncMealy<S, C extends Mi.Effects<S>> implements Mi.Runne
         return projection.apply(state);
     }
 
-    private void join(Future<Mi.Action<S, C>> work, WeakReference<C> weakContext) {
+    private void join(Future<Mi.Action<S, E>> work, WeakReference<E> weakEffects) {
         AtomicReference<Future<?>> joinRef = new AtomicReference<>();
         joinRef.set(joiner.submit(() -> {
             try {
-                Mi.Action<S, C> action = work.get(60, TimeUnit.SECONDS);
+                Mi.Action<S, E> action = work.get(60, TimeUnit.SECONDS);
                 backlog.remove(work);
-                C context = weakContext.get();
-                if (context != null) {
-                    exec(context, action);
+                E effects = weakEffects.get();
+                if (effects != null) {
+                    exec(effects, action);
                 }
             }
             catch (InterruptedException ignored) {
@@ -115,9 +115,9 @@ public abstract class AsyncMealy<S, C extends Mi.Effects<S>> implements Mi.Runne
                 backlog.remove(work);
                 work.cancel(true);
                 runOnMainThread(() -> {
-                    C context = weakContext.get();
-                    if (context != null) {
-                        context.handle(e);
+                    E effects = weakEffects.get();
+                    if (effects != null) {
+                        effects.handle(e);
                     }
                     else {
                         throw new RuntimeException(e);

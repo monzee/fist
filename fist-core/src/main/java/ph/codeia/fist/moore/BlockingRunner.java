@@ -16,10 +16,10 @@ public class BlockingRunner<S> implements Mu.Runner<S> {
     }
 
     @Override
-    public void start(Mu.Context<S> context) {
+    public void start(Mu.Effects<S> effects) {
         if (isRunning) return;
         isRunning = true;
-        context.onEnter(state);
+        effects.onEnter(state);
     }
 
     @Override
@@ -28,9 +28,9 @@ public class BlockingRunner<S> implements Mu.Runner<S> {
     }
 
     @Override
-    public void exec(Mu.Context<S> context, Mu.Action<S> action) {
+    public void exec(Mu.Effects<S> effects, Mu.Action<S> action) {
         if (!isRunning) return;
-        action.apply(state).run(new Mu.Processor<S>() {
+        action.apply(state).run(new Mu.Machine<S>() {
             @Override
             public void noop() {
             }
@@ -38,23 +38,23 @@ public class BlockingRunner<S> implements Mu.Runner<S> {
             @Override
             public void enter(S newState) {
                 state = newState;
-                context.onEnter(state);
+                effects.onEnter(state);
             }
 
             @Override
             public void reenter() {
-                context.onEnter(state);
+                effects.onEnter(state);
             }
 
             @Override
-            public void reduce(Mu.Action<S> action) {
-                exec(context, action);
+            public void forward(Mu.Action<S> action) {
+                exec(effects, action);
             }
 
             @Override
-            public void reduce(Callable<Mu.Action<S>> thunk) {
+            public void async(Callable<Mu.Action<S>> thunk) {
                 try {
-                    exec(context, thunk.call());
+                    exec(effects, thunk.call());
                 }
                 catch (Exception e) {
                     raise(e);

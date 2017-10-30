@@ -33,10 +33,11 @@ import java.util.concurrent.Callable;
  * @author Mon Zafra
  * @since 0.1.0
  */
+@SuppressWarnings("NewApi")
 public final class Mu<S> {
 
     public static <S> Mu<S> noop() {
-        return new Mu<>(Processor::noop);
+        return new Mu<>(Machine::noop);
     }
 
     public static <S> Mu<S> enter(S newState) {
@@ -44,26 +45,26 @@ public final class Mu<S> {
     }
 
     public static <S> Mu<S> reenter() {
-        return new Mu<>(Processor::reenter);
+        return new Mu<>(Machine::reenter);
     }
 
     public static <S> Mu<S> reduce(Action<S> action) {
-        return new Mu<>(sm -> sm.reduce(action));
+        return new Mu<>(sm -> sm.forward(action));
     }
 
     public static <S> Mu<S> reduce(Callable<Action<S>> thunk) {
-        return new Mu<>(sm -> sm.reduce(thunk));
+        return new Mu<>(sm -> sm.async(thunk));
     }
 
     public static <S> Mu<S> raise(Throwable e) {
         return new Mu<>(sm -> sm.raise(e));
     }
 
-    public static <S> Actor<S> bind(Runner<S> runner, Context<S> context) {
+    public static <S> Actor<S> bind(Runner<S> runner, Effects<S> effects) {
         return new Actor<S>() {
             @Override
             public void start() {
-                runner.start(context);
+                runner.start(effects);
             }
 
             @Override
@@ -73,7 +74,7 @@ public final class Mu<S> {
 
             @Override
             public void exec(Action<S> action) {
-                runner.exec(context, action);
+                runner.exec(effects, action);
             }
         };
     }
@@ -84,14 +85,13 @@ public final class Mu<S> {
         this.command = command;
     }
 
-    public void run(Processor<S> machine) {
+    public void run(Machine<S> machine) {
         command.run(machine);
     }
 
     public Mu<S> then(Mu<S> next) {
-        return new Processor<S>() {
+        return new Machine<S>() {
             Mu<S> merged = Mu.this;
-
             {
                 next.run(this);
             }
@@ -117,18 +117,18 @@ public final class Mu<S> {
             }
 
             @Override
-            public void reduce(Action<S> action) {
+            public void forward(Action<S> action) {
                 merged = new Mu<>(sm -> {
                     run(sm);
-                    sm.reduce(action);
+                    sm.forward(action);
                 });
             }
 
             @Override
-            public void reduce(Callable<Action<S>> thunk) {
+            public void async(Callable<Action<S>> thunk) {
                 merged = new Mu<>(sm -> {
                     run(sm);
-                    sm.reduce(thunk);
+                    sm.async(thunk);
                 });
             }
 
@@ -151,47 +151,81 @@ public final class Mu<S> {
     }
 
     private interface Command<S> {
-        void run(Processor<S> sm);
+        void run(Machine<S> sm);
     }
 
     public interface Action<S> {
         Mu<S> apply(S state);
+
+        static <S> Action<S> pure(S state) {
+            return s -> Mu.enter(state);
+        }
+
+        static <S> Action<S> pure(Mu<S> command) {
+            return s -> command;
+        }
+
+        static <S> Action<S> pure(Callable<Action<S>> thunk) {
+            return s -> Mu.reduce(thunk);
+        }
+
+        static <S> Action<S> zero() {
+            return s -> Mu.noop();
+        }
+
+        default Action<S> then(S state) {
+            return s -> apply(s).then(pure(state));
+        }
+
+        default Action<S> then(Mu<S> command) {
+            return s -> apply(s).then(pure(command));
+        }
+
+        default Action<S> then(Action<S> action) {
+            return s -> apply(s).then(action);
+        }
+
+        default Action<S> then(Callable<Action<S>> thunk) {
+            return s -> apply(s).then(thunk);
+        }
+
+        default Action<S> after(Action<S> action) {
+            return action.then(this);
+        }
+
+        default Mu<S> after(Mu<S> command) {
+            return command.then(this);
+        }
     }
 
-    public interface Processor<S> {
+    public interface Machine<S> {
         void noop();
         void enter(S newState);
         void reenter();
-        void reduce(Action<S> action);
-        void reduce(Callable<Action<S>> thunk);
+        void forward(Action<S> action);
+        void async(Callable<Action<S>> thunk);
         void raise(Throwable e);
     }
 
     public interface Runner<S> {
-        void start(Context<S> context);
+        void start(Effects<S> effects);
         void stop();
-        void exec(Context<S> context, Action<S> action);
+        void exec(Effects<S> effects, Action<S> action);
         <T> T inspect(Function<S, T> projection);
     }
 
-    public interface Context<S> {
+    public interface Effects<S> {
         void onEnter(S s);
+
+        default void handle(Throwable e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public interface Actor<S> {
         void start();
         void stop();
         void exec(Action<S> action);
-    }
-
-    public interface ErrorHandler {
-        void handle(Throwable e);
-
-        ErrorHandler IGNORE = e -> {};
-
-        ErrorHandler RETHROW = e -> {
-            throw new RuntimeException(e);
-        };
     }
 
     public interface Function<S, T> {

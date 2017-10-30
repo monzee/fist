@@ -11,8 +11,8 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
         <activity
-            android:name="ph.codeia.fist.sample.MiGuessTheNumber"
-            android:label="Guess the number!">
+            android:name="ph.codeia.fist.sample.MiLoadableContent"
+            android:label="Load Demo">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>

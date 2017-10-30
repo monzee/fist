@@ -13,24 +13,23 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.Random;
-import java.util.concurrent.Callable;
 
 import ph.codeia.fist.AndroidMealy;
 import ph.codeia.fist.R;
 import ph.codeia.fist.mealy.Mi;
 
-@SuppressLint({"DefaultLocale", "SetTextI18n"})
+@SuppressLint({ "DefaultLocale", "SetTextI18n" })
 public class MiGuessTheNumber extends AppCompatActivity implements Ui {
 
-    private Mi.Runner<GameModel<Ui>, Ui> game;
-    private Mi.Actor<GameModel<Ui>, Ui> screen;
+    private Mi.Runner<Game<Ui>, Ui> game;
+    private Mi.Actor<Game<Ui>, Ui> screen;
     private TextView message;
     private EditText input;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         //noinspection unchecked
-        game = (Mi.Runner<GameModel<Ui>, Ui>) getLastCustomNonConfigurationInstance();
+        game = (Mi.Runner<Game<Ui>, Ui>) getLastCustomNonConfigurationInstance();
         if (game == null) {
             game = new AndroidMealy<>(Game.begin(6));
         }
@@ -41,8 +40,8 @@ public class MiGuessTheNumber extends AppCompatActivity implements Ui {
         input.setOnEditorActionListener((textView, i, keyEvent) -> {
             String text = textView.getText().toString();
             if (keyEvent != null || text.isEmpty()) return false;
-            screen.exec(Game.guess(Integer.parseInt(text)));
-            return game.inspect(GameModel::isNotDone);
+            screen.exec(Player.guess(Integer.parseInt(text)));
+            return game.inspect(Game::isNotDone);
         });
         screen = Mi.bind(game, this);
     }
@@ -69,7 +68,8 @@ public class MiGuessTheNumber extends AppCompatActivity implements Ui {
         Toast.makeText(
                 this,
                 String.format(message, fmtArgs),
-                Toast.LENGTH_SHORT).show();
+                Toast.LENGTH_SHORT
+        ).show();
     }
 
     @Override
@@ -78,7 +78,7 @@ public class MiGuessTheNumber extends AppCompatActivity implements Ui {
     }
 
     @Override
-    public Mi<GameModel<Ui>, Ui> begin(int maxTries) {
+    public Mi<Game<Ui>, Ui> begin(int maxTries) {
         message.setText(String.format(""
                 + "Choose a number from 1-100 inclusive.%n"
                 + "You have %d tries to get it right.", maxTries));
@@ -86,40 +86,46 @@ public class MiGuessTheNumber extends AppCompatActivity implements Ui {
     }
 
     @Override
-    public Mi<GameModel<Ui>, Ui> playing(int guess, int secret, int triesLeft, int maxTries) {
+    public Mi<Game<Ui>, Ui> playing(int guess, int secret, int triesLeft, int maxTries) {
         String tries = triesLeft == 1 ? "try" : "tries";
         String relation = guess < secret ? "low" : "high";
         message.setText(String.format(
                 "%d is too %s; %d %s remaining",
-                guess, relation, triesLeft, tries));
+                guess, relation, triesLeft, tries
+        ));
         return null;
     }
 
     @Override
-    public Mi<GameModel<Ui>, Ui> won() {
+    public Mi<Game<Ui>, Ui> won() {
         message.setText("Correct!");
         return null;
     }
 
     @Override
-    public Mi<GameModel<Ui>, Ui> lost(int secret) {
+    public Mi<Game<Ui>, Ui> lost(int secret) {
         message.setText(String.format("Game over! The number was %d.", secret));
         return null;
     }
 }
 
-interface GameModel<C> {
-    Mi<GameModel<C>, C> match(State<C> state);
+interface Game<C> {
+    Mi<Game<C>, C> match(State<C> state);
+
+    static <C> Game<C> begin(int maxTries) {
+        return game -> game.begin(maxTries);
+    }
 
     default boolean isNotDone() {
         return new State<C>() {
             boolean result = false;
+
             {
                 match(this);
             }
 
             @Override
-            public Mi<GameModel<C>, C> playing(int guess, int secret, int triesLeft, int maxTries) {
+            public Mi<Game<C>, C> playing(int guess, int secret, int triesLeft, int maxTries) {
                 result = true;
                 return null;
             }
@@ -127,73 +133,70 @@ interface GameModel<C> {
     }
 
     interface State<C> {
-        default Mi<GameModel<C>, C> begin(int maxTries) {
+        default Mi<Game<C>, C> begin(int maxTries) {
             return otherwise();
         }
 
-        default Mi<GameModel<C>, C> playing(int guess, int secret, int triesLeft, int maxTries) {
+        default Mi<Game<C>, C> playing(int guess, int secret, int triesLeft, int maxTries) {
             return otherwise();
         }
 
-        default Mi<GameModel<C>, C> lost(int secret) {
+        default Mi<Game<C>, C> lost(int secret) {
             return otherwise();
         }
 
-        default Mi<GameModel<C>, C> won() {
+        default Mi<Game<C>, C> won() {
             return otherwise();
         }
 
-        default Mi<GameModel<C>, C> otherwise() {
+        default Mi<Game<C>, C> otherwise() {
             return Mi.raise(new IllegalStateException());
         }
     }
 }
 
-interface Ui extends Mi.Effects<GameModel<Ui>>, GameModel.State<Ui> {
+interface Ui extends Mi.Effects<Game<Ui>>, Game.State<Ui> {
     void say(String message, Object... fmtArgs);
+
     void clear();
 
     @Override
-    default void onEnter(GameModel<Ui> game) {
+    default void onEnter(Game<Ui> game) {
         game.match(this);
     }
 }
 
-interface Game {
+interface Player {
     Random RNG = new Random();
 
-    static <C> GameModel<C> begin(int maxTries) {
-        return game -> game.begin(maxTries);
-    }
-
-    static Mi.Action<GameModel<Ui>, Ui> newGame(int maxTries) {
+    static Mi.Action<Game<Ui>, Ui> newGame(int maxTries) {
         return (_g, view) -> {
             view.say("Starting new game in 10 seconds");
-            return Mi.reduce(() -> {
+            return Mi.async(() -> {
                 Thread.sleep(10_000);
                 return (_fg, futureView) -> {
                     futureView.clear();
-                    return Mi.enter(begin(maxTries));
+                    return Mi.enter(Game.begin(maxTries));
                 };
             });
         };
     }
 
-    static Mi.Action<GameModel<Ui>, Ui> guess(int n) {
-        return (game, view) -> game.match(new GameModel.State<Ui>() {
+    static Mi.Action<Game<Ui>, Ui> guess(int n) {
+        return (game, view) -> game.match(new Game.State<Ui>() {
             @Override
-            public Mi<GameModel<Ui>, Ui> begin(int maxTries) {
+            public Mi<Game<Ui>, Ui> begin(int maxTries) {
                 view.clear();
                 return playing(n, RNG.nextInt(100) + 1, maxTries, maxTries);
             }
 
             @Override
-            public Mi<GameModel<Ui>, Ui> playing(
+            public Mi<Game<Ui>, Ui> playing(
                     int guess, int secret,
                     int triesLeft, int maxTries
             ) {
                 if (n == secret) {
-                    return newGame(maxTries).after(Mi.enter(GameModel.State::won));
+                    return newGame(maxTries).after(Mi.enter(Game.State::won));
                 }
                 if (triesLeft == 1) {
                     return newGame(maxTries).after(Mi.enter(s -> s.lost(secret)));
@@ -203,7 +206,7 @@ interface Game {
             }
 
             @Override
-            public Mi<GameModel<Ui>, Ui> otherwise() {
+            public Mi<Game<Ui>, Ui> otherwise() {
                 view.say("Wait for the next game.");
                 return Mi.noop();
             }

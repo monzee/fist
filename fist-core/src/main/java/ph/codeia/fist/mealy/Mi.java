@@ -9,37 +9,37 @@ import java.util.concurrent.Callable;
 import ph.codeia.fist.moore.Mu;
 
 @SuppressWarnings("NewApi")
-public final class Mi<S, C> {
+public final class Mi<S, E> {
 
-    public static <S, C> Mi<S, C> noop() {
+    public static <S, E> Mi<S, E> noop() {
         return new Mi<>(Machine::noop);
     }
 
-    public static <S, C> Mi<S, C> reenter() {
+    public static <S, E> Mi<S, E> reenter() {
         return new Mi<>(Machine::reenter);
     }
 
-    public static <S, C> Mi<S, C> enter(S newState) {
+    public static <S, E> Mi<S, E> enter(S newState) {
         return new Mi<>(sm -> sm.enter(newState));
     }
 
-    public static <S, C> Mi<S, C> reduce(Action<S, C> action) {
-        return new Mi<>(sm -> sm.reduce(action));
+    public static <S, E> Mi<S, E> forward(Action<S, E> action) {
+        return new Mi<>(sm -> sm.forward(action));
     }
 
-    public static <S, C> Mi<S, C> reduce(Callable<Action<S, C>> thunk) {
-        return new Mi<>(sm -> sm.reduce(thunk));
+    public static <S, E> Mi<S, E> async(Callable<Action<S, E>> thunk) {
+        return new Mi<>(sm -> sm.async(thunk));
     }
 
-    public static <S, C> Mi<S, C> raise(Throwable e) {
+    public static <S, E> Mi<S, E> raise(Throwable e) {
         return new Mi<>(sm -> sm.raise(e));
     }
 
-    public static <S, C extends Effects<S>> Actor<S, C> bind(Runner<S, C> runner, C context) {
-        return new Actor<S, C>() {
+    public static <S, E extends Effects<S>> Actor<S, E> bind(Runner<S, E> runner, E effects) {
+        return new Actor<S, E>() {
             @Override
             public void start() {
-                runner.start(context);
+                runner.start(effects);
             }
 
             @Override
@@ -48,173 +48,170 @@ public final class Mi<S, C> {
             }
 
             @Override
-            public void exec(Action<S, C> action) {
-                runner.exec(context, action);
+            public void exec(Action<S, E> action) {
+                runner.exec(effects, action);
             }
         };
     }
 
-    private final Command<S, C> command;
+    private final Command<S, E> command;
 
-    private Mi(Command<S, C> command) {
+    private Mi(Command<S, E> command) {
         this.command = command;
     }
 
-    public void run(Machine<S, C> sm) {
+    public void run(Machine<S, E> sm) {
         command.run(sm);
     }
 
-    public Mi<S, C> then(Mi<S, C> next) {
-        return new Mi<>(command.then(next.command));
+    public Mi<S, E> then(Mi<S, E> next) {
+        return new Machine<S, E>() {
+            Mi<S, E> merged = Mi.this;
+            {
+                next.run(this);
+            }
+
+            @Override
+            public void noop() {
+            }
+
+            @Override
+            public void reenter() {
+                merged = new Mi<>(sm -> {
+                    run(sm);
+                    sm.reenter();
+                });
+            }
+
+            @Override
+            public void enter(S newState) {
+                merged = new Mi<>(sm -> {
+                    run(sm);
+                    sm.enter(newState);
+                });
+            }
+
+            @Override
+            public void forward(Action<S, E> action) {
+                merged = new Mi<>(sm -> {
+                    run(sm);
+                    sm.forward(action);
+                });
+            }
+
+            @Override
+            public void async(Callable<Action<S, E>> thunk) {
+                merged = new Mi<>(sm -> {
+                    run(sm);
+                    sm.async(thunk);
+                });
+            }
+
+            @Override
+            public void raise(Throwable e) {
+                merged = new Mi<>(sm -> {
+                    run(sm);
+                    sm.raise(e);
+                });
+            }
+        }.merged;
     }
 
-    public Mi<S, C> then(Mi.Action<S, C> action) {
-        return then(Mi.reduce(action));
+    public Mi<S, E> then(Mi.Action<S, E> action) {
+        return then(Mi.forward(action));
     }
 
-    public Mi<S, C> then(Callable<Mi.Action<S, C>> thunk) {
-        return then(Mi.reduce(thunk));
+    public Mi<S, E> then(Callable<Mi.Action<S, E>> thunk) {
+        return then(Mi.async(thunk));
     }
 
-    private interface Command<S, C> {
-        void run(Machine<S, C> sm);
-
-        default Command<S, C> then(Command<S, C> next) {
-            return new Machine<S, C>() {
-                Command<S, C> merged = Command.this;
-                {
-                    next.run(this);
-                }
-
-                @Override
-                public void noop() {
-                }
-
-                @Override
-                public void reenter() {
-                    merged = sm -> {
-                        run(sm);
-                        sm.reenter();
-                    };
-                }
-
-                @Override
-                public void enter(S newState) {
-                    merged = sm -> {
-                        run(sm);
-                        sm.enter(newState);
-                    };
-                }
-
-                @Override
-                public void reduce(Action<S, C> action) {
-                    merged = sm -> {
-                        run(sm);
-                        sm.reduce(action);
-                    };
-                }
-
-                @Override
-                public void reduce(Callable<Action<S, C>> thunk) {
-                    merged = sm -> {
-                        run(sm);
-                        sm.reduce(thunk);
-                    };
-                }
-
-                @Override
-                public void raise(Throwable e) {
-                    merged = sm -> {
-                        run(sm);
-                        sm.raise(e);
-                    };
-                }
-            }.merged;
-        }
+    private interface Command<S, E> {
+        void run(Machine<S, E> sm);
     }
 
-    public interface Action<S, C> {
-        Mi<S, C> apply(S s, C c);
+    public interface Action<S, E> {
+        Mi<S, E> apply(S s, E e);
 
-        static <S, C> Action<S, C> effect(Proc<C> proc) {
-            return (s, c) -> {
-                proc.receive(c);
+        static <S, E> Action<S, E> effect(Proc<E> proc) {
+            return (s, e) -> {
+                proc.receive(e);
                 return Mi.noop();
             };
         }
 
-        static <S, C> Action<S, C> pure(S state) {
-            return (s, c) -> Mi.enter(state);
+        static <S, E> Action<S, E> pure(S state) {
+            return (s, e) -> Mi.enter(state);
         }
 
-        static <S, C> Action<S, C> pure(Mi<S, C> command) {
-            return (s, c) -> command;
+        static <S, E> Action<S, E> pure(Mi<S, E> command) {
+            return (s, e) -> command;
         }
 
-        static <S, C> Action<S, C> pure(Callable<Action<S, C>> thunk) {
-            return (s, c) -> Mi.reduce(thunk);
+        static <S, E> Action<S, E> pure(Callable<Action<S, E>> thunk) {
+            return (s, e) -> Mi.async(thunk);
         }
 
-        static <S, C> Action<S, C> pure(Mu.Function<S, S> f) {
-            return (s, c) -> Mi.enter(f.apply(s));
+        static <S, E> Action<S, E> pure(Mu.Function<S, S> f) {
+            return (s, e) -> Mi.enter(f.apply(s));
         }
 
-        static <S, C> Action<S, C> zero() {
-            return (s, c) -> Mi.noop();
+        static <S, E> Action<S, E> zero() {
+            return (s, e) -> Mi.noop();
         }
 
-        default Action<S, C> then(Action<S, C> action) {
-            return (s, c) -> apply(s, c).then(action);
+        default Action<S, E> then(Action<S, E> action) {
+            return (s, e) -> apply(s, e).then(action);
         }
 
-        default Action<S, C> then(Callable<Action<S, C>> action) {
-            return (s, c) -> apply(s, c).then(action);
+        default Action<S, E> then(Callable<Action<S, E>> action) {
+            return (s, e) -> apply(s, e).then(action);
         }
 
-        default Action<S, C> then(Mi<S, C> command) {
-            return (s, c) -> apply(s, c).then(pure(command));
+        default Action<S, E> then(Mi<S, E> command) {
+            return (s, e) -> apply(s, e).then(pure(command));
         }
 
-        default Action<S, C> then(S state) {
-            return (s, c) -> apply(s, c).then(pure(state));
+        default Action<S, E> then(S state) {
+            return (s, e) -> apply(s, e).then(pure(state));
         }
 
-        default Action<S, C> after(Action<S, C> action) {
+        default Action<S, E> after(Action<S, E> action) {
             return action.then(this);
         }
 
-        default Mi<S, C> after(Mi<S, C> command) {
+        default Mi<S, E> after(Mi<S, E> command) {
             return command.then(this);
         }
     }
 
-    public interface Machine<S, C> {
+    public interface Machine<S, E> {
         void noop();
         void reenter();
         void enter(S newState);
-        void reduce(Action<S, C> action);
-        void reduce(Callable<Action<S, C>> thunk);
+        void forward(Action<S, E> action);
+        void async(Callable<Action<S, E>> thunk);
         void raise(Throwable e);
     }
 
-    public interface Runner<S, C extends Effects<S>> {
-        void start(C context);
+    public interface Runner<S, E extends Effects<S>> {
+        void start(E effects);
         void stop();
-        void exec(C context, Action<S, C> action);
+        void exec(E effects, Action<S, E> action);
         <T> T inspect(Mu.Function<S, T> projection);
     }
 
     public interface Effects<S> {
         void onEnter(S s);
+
         default void handle(Throwable e) {
             throw new RuntimeException(e);
         }
     }
 
-    public interface Actor<S, C extends Effects<S>> {
+    public interface Actor<S, E extends Effects<S>> {
         void start();
         void stop();
-        void exec(Action<S, C> action);
+        void exec(Action<S, E> action);
     }
 
     public interface Proc<T> {

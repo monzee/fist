@@ -31,17 +31,15 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
 
     protected abstract void runOnMainThread(Runnable proc);
 
-    protected abstract void handle(Throwable e, Mu.Context<S> context);
-
     @Override
-    public void start(Mu.Context<S> context) {
+    public void start(Mu.Effects<S> effects) {
         if (isRunning) return;
         isRunning = true;
-        WeakReference<Mu.Context<S>> weakContext = new WeakReference<>(context);
+        WeakReference<Mu.Effects<S>> weakEffects = new WeakReference<>(effects);
         for (Future<Mu.Action<S>> work : backlog) {
-            join(weakContext, work);
+            join(weakEffects, work);
         }
-        context.onEnter(state);
+        effects.onEnter(state);
     }
 
     @Override
@@ -57,9 +55,9 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
     }
 
     @Override
-    public void exec(Mu.Context<S> context, Mu.Action<S> action) {
+    public void exec(Mu.Effects<S> effects, Mu.Action<S> action) {
         if (!isRunning) return;
-        runOnMainThread(() -> action.apply(state).run(new Mu.Processor<S>() {
+        runOnMainThread(() -> action.apply(state).run(new Mu.Machine<S>() {
             @Override
             public void noop() {
             }
@@ -67,29 +65,29 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
             @Override
             public void enter(S newState) {
                 state = newState;
-                context.onEnter(state);
+                effects.onEnter(state);
             }
 
             @Override
             public void reenter() {
-                context.onEnter(state);
+                effects.onEnter(state);
             }
 
             @Override
-            public void reduce(Mu.Action<S> action) {
+            public void forward(Mu.Action<S> action) {
                 action.apply(state).run(this);
             }
 
             @Override
-            public void reduce(Callable<Mu.Action<S>> thunk) {
+            public void async(Callable<Mu.Action<S>> thunk) {
                 Future<Mu.Action<S>> work = worker.submit(thunk);
                 backlog.add(work);
-                join(new WeakReference<>(context), work);
+                join(new WeakReference<>(effects), work);
             }
 
             @Override
             public void raise(Throwable e) {
-                handle(e, context);
+                effects.handle(e);
             }
         }));
     }
@@ -100,7 +98,7 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
     }
 
     private void join(
-            WeakReference<Mu.Context<S>> weakContext,
+            WeakReference<Mu.Effects<S>> weakEffects,
             Future<Mu.Action<S>> work
     ) {
         AtomicReference<Future<?>> joinRef = new AtomicReference<>();
@@ -108,9 +106,9 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
             try {
                 Mu.Action<S> action = work.get(60, TimeUnit.SECONDS);
                 backlog.remove(work);
-                Mu.Context<S> context = weakContext.get();
-                if (context != null) {
-                    exec(context, action);
+                Mu.Effects<S> effects = weakEffects.get();
+                if (effects != null) {
+                    exec(effects, action);
                 }
             }
             catch (InterruptedException ignored) {
@@ -118,7 +116,15 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
             catch (ExecutionException | TimeoutException e) {
                 backlog.remove(work);
                 work.cancel(true);
-                handle(e, weakContext.get());
+                runOnMainThread(() -> {
+                    Mu.Effects<S> effects = weakEffects.get();
+                    if (effects != null) {
+                        effects.handle(e);
+                    }
+                    else {
+                        throw new RuntimeException(e);
+                    }
+                });
             }
             finally {
                 pending.remove(joinRef);
