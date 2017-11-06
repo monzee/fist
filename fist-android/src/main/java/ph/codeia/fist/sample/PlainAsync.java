@@ -135,9 +135,6 @@ public class PlainAsync extends AppCompatActivity {
 
     @SuppressLint("StaticFieldLeak")
     void join(Future<String> task) {
-        if (task == null) {
-            return;
-        }
         my.pendingFetch = task;
         pendingJoin = new AsyncTask<Void, Exception, String>() {
             @Override

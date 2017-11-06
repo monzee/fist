@@ -1,4 +1,4 @@
-package ph.codeia.fist.moore;
+package ph.codeia.fist.mealy;
 
 /*
  * This file is a part of the fist project.
@@ -6,18 +6,20 @@ package ph.codeia.fist.moore;
 
 import java.util.concurrent.Callable;
 
-public class BlockingRunner<S> implements Mu.Runner<S> {
+import ph.codeia.fist.Effects;
+import ph.codeia.fist.Fn;
+
+public class BlockingMealy<S, E extends Effects<S>> implements Mi.Runner<S, E> {
 
     private S state;
     private boolean isRunning;
 
-    public BlockingRunner(S state) {
+    public BlockingMealy(S state) {
         this.state = state;
     }
 
     @Override
-    public void start(Mu.Effects<S> effects) {
-        if (isRunning) return;
+    public void start(E effects) {
         isRunning = true;
         effects.onEnter(state);
     }
@@ -28,17 +30,11 @@ public class BlockingRunner<S> implements Mu.Runner<S> {
     }
 
     @Override
-    public void exec(Mu.Effects<S> effects, Mu.Action<S> action) {
+    public void exec(E effects, Mi.Action<S, E> action) {
         if (!isRunning) return;
-        action.apply(state).run(new Mu.Machine<S>() {
+        action.apply(state, effects).run(new Mi.Fst<S, E>() {
             @Override
             public void noop() {
-            }
-
-            @Override
-            public void enter(S newState) {
-                state = newState;
-                effects.onEnter(state);
             }
 
             @Override
@@ -47,14 +43,20 @@ public class BlockingRunner<S> implements Mu.Runner<S> {
             }
 
             @Override
-            public void forward(Mu.Action<S> action) {
-                exec(effects, action);
+            public void enter(S newState) {
+                state = newState;
+                reenter();
             }
 
             @Override
-            public void async(Callable<Mu.Action<S>> thunk) {
+            public void forward(Mi.Action<S, E> action) {
+                action.apply(state, effects).run(this);
+            }
+
+            @Override
+            public void async(Callable<Mi.Action<S, E>> thunk) {
                 try {
-                    exec(effects, thunk.call());
+                    forward(thunk.call());
                 }
                 catch (Exception e) {
                     raise(e);
@@ -63,13 +65,13 @@ public class BlockingRunner<S> implements Mu.Runner<S> {
 
             @Override
             public void raise(Throwable e) {
-                throw new RuntimeException(e);
+                effects.handle(e);
             }
         });
     }
 
     @Override
-    public <T> T inspect(Mu.Function<S, T> projection) {
+    public <T> T project(Fn.Func<S, T> projection) {
         return projection.apply(state);
     }
 }

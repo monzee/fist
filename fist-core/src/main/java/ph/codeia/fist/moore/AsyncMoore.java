@@ -16,7 +16,10 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
-public abstract class AsyncRunner<S> implements Mu.Runner<S> {
+import ph.codeia.fist.Effects;
+import ph.codeia.fist.Fn;
+
+public abstract class AsyncMoore<S> implements Mu.Runner<S> {
 
     private S state;
     private boolean isRunning;
@@ -25,17 +28,17 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
     private final Queue<Future<Mu.Action<S>>> backlog = new ConcurrentLinkedQueue<>();
     private final Queue<AtomicReference<Future<?>>> pending = new ConcurrentLinkedQueue<>();
 
-    public AsyncRunner(S state) {
+    public AsyncMoore(S state) {
         this.state = state;
     }
 
     protected abstract void runOnMainThread(Runnable proc);
 
     @Override
-    public void start(Mu.Effects<S> effects) {
+    public void start(Effects<S> effects) {
         if (isRunning) return;
         isRunning = true;
-        WeakReference<Mu.Effects<S>> weakEffects = new WeakReference<>(effects);
+        WeakReference<Effects<S>> weakEffects = new WeakReference<>(effects);
         for (Future<Mu.Action<S>> work : backlog) {
             join(weakEffects, work);
         }
@@ -55,9 +58,9 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
     }
 
     @Override
-    public void exec(Mu.Effects<S> effects, Mu.Action<S> action) {
+    public void exec(Effects<S> effects, Mu.Action<S> action) {
         if (!isRunning) return;
-        runOnMainThread(() -> action.apply(state).run(new Mu.Machine<S>() {
+        runOnMainThread(() -> action.apply(state).run(new Mu.Fst<S>() {
             @Override
             public void noop() {
             }
@@ -93,12 +96,12 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
     }
 
     @Override
-    public <T> T inspect(Mu.Function<S, T> projection) {
+    public <T> T project(Fn.Func<S, T> projection) {
         return projection.apply(state);
     }
 
     private void join(
-            WeakReference<Mu.Effects<S>> weakEffects,
+            WeakReference<Effects<S>> weakEffects,
             Future<Mu.Action<S>> work
     ) {
         AtomicReference<Future<?>> joinRef = new AtomicReference<>();
@@ -106,25 +109,21 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
             try {
                 Mu.Action<S> action = work.get(60, TimeUnit.SECONDS);
                 backlog.remove(work);
-                Mu.Effects<S> effects = weakEffects.get();
+                Effects<S> effects = weakEffects.get();
                 if (effects != null) {
                     exec(effects, action);
                 }
             }
             catch (InterruptedException ignored) {
             }
-            catch (ExecutionException | TimeoutException e) {
+            catch (ExecutionException e) {
+                backlog.remove(work);
+                handle(e.getCause(), weakEffects);
+            }
+            catch (TimeoutException e) {
                 backlog.remove(work);
                 work.cancel(true);
-                runOnMainThread(() -> {
-                    Mu.Effects<S> effects = weakEffects.get();
-                    if (effects != null) {
-                        effects.handle(e);
-                    }
-                    else {
-                        throw new RuntimeException(e);
-                    }
-                });
+                handle(e, weakEffects);
             }
             finally {
                 pending.remove(joinRef);
@@ -132,6 +131,18 @@ public abstract class AsyncRunner<S> implements Mu.Runner<S> {
             }
         }));
         pending.add(joinRef);
+    }
+
+    private void handle(Throwable e, WeakReference<Effects<S>> weakEffects) {
+        runOnMainThread(() -> {
+            Effects<S> effects = weakEffects.get();
+            if (effects != null) {
+                effects.handle(e);
+            }
+            else {
+                throw new RuntimeException(e);
+            }
+        });
     }
 
 }

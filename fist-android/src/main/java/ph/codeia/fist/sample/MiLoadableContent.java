@@ -22,6 +22,21 @@ import ph.codeia.fist.mealy.Mi;
 
 public class MiLoadableContent extends AppCompatActivity implements Loadable.Ui<String> {
 
+    private static class Scope {
+        final Random rng = new Random();
+        final Loader<String> loader = () -> {
+            Thread.sleep(10_000);
+            if (rng.nextBoolean()) {
+                return "Lorem ipsum dolor sit amet";
+            }
+            else {
+                return null;
+            }
+        };
+        final Mi.Runner<Loadable<String>, Loadable.Ui<String>> content =
+                new AndroidMealy<>(new Loadable<>());
+    }
+
     private Scope my;
     private Mi.Actor<Loadable<String>, Loadable.Ui<String>> screen;
     private TextView message;
@@ -117,26 +132,14 @@ public class MiLoadableContent extends AppCompatActivity implements Loadable.Ui<
     public void handle(Throwable e) {
         if (e instanceof TimeoutException) {
             tell("Unable to fetch in time.");
-            screen.exec(my.loader.reset());
+            screen.exec(Loader.reset());
+        }
+        else {
+            throw new RuntimeException(e);
         }
     }
 
     void tell(String tpl, Object... fmtArgs) {
         Toast.makeText(this, String.format(tpl, fmtArgs), Toast.LENGTH_SHORT).show();
-    }
-
-    private static class Scope {
-        final Random rng = new Random();
-        final Loader<String> loader = () -> {
-            Thread.sleep(10_000);
-            if (rng.nextBoolean()) {
-                return "Lorem ipsum dolor sit amet";
-            }
-            else {
-                return null;
-            }
-        };
-        final Mi.Runner<Loadable<String>, Loadable.Ui<String>> content =
-                new AndroidMealy<>(new Loadable<>());
     }
 }

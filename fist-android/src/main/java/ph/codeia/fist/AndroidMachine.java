@@ -10,6 +10,9 @@ import android.os.Looper;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
+import ph.codeia.fist.deprecated.AsyncMachine;
+import ph.codeia.fist.deprecated.Fst;
+
 public class AndroidMachine<S, O extends Fst.ErrorHandler, A extends Fst.Action<S, O, A>>
         extends AsyncMachine<S, O, A>
 {

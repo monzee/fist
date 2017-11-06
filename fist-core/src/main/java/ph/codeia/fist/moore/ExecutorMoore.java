@@ -6,10 +6,10 @@ package ph.codeia.fist.moore;
 
 import java.util.concurrent.Executor;
 
-public class ExecutorRunner<S> extends AsyncRunner<S> {
+public class ExecutorMoore<S> extends AsyncMoore<S> {
     private final Executor main;
 
-    public ExecutorRunner(S state, Executor main) {
+    public ExecutorMoore(S state, Executor main) {
         super(state);
         this.main = main;
     }

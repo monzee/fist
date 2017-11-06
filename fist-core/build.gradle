@@ -1,6 +1,49 @@
 plugins {
-    id 'java'
+    id 'java-library'
+    id 'maven-publish'
 }
 
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
+
+javadoc {
+    title = 'Fist Core'
+    options.links 'https://developer.android.com/reference'
+}
+
+task jarSources(type: Jar, dependsOn: 'classes', group: 'publishing') {
+    classifier 'sources'
+    from sourceSets.main.allSource
+}
+
+task jarJavadoc(type: Jar, dependsOn: 'javadoc', group: 'publishing') {
+    classifier 'javadoc'
+    from javadoc.destinationDir
+}
+
+publishing {
+    repositories.maven {
+        name 'bintray'
+        url 'https://api.bintray.com/maven/monzee/jvm/fist-core/'
+        credentials {
+            username = BINTRAY_USER
+            password = BINTRAY_API_KEY
+        }
+    }
+
+    publications {
+        core(MavenPublication) {
+            from components.java
+            artifact jarSources
+            artifact jarJavadoc
+
+            pom.withXml {
+                asNode().children().last() + pomMetadata(
+                    name: 'First Core',
+                    description: 'Abstract finite state transducer',
+                    url: 'https://github.com/monzee/fist'
+                )
+            }
+        }
+    }
+}

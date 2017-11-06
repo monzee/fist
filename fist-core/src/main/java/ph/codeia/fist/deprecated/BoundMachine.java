@@ -1,4 +1,4 @@
-package ph.codeia.fist;
+package ph.codeia.fist.deprecated;
 
 /*
  * This file is a part of the fist project.

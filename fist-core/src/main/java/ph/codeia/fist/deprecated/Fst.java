@@ -1,4 +1,4 @@
-package ph.codeia.fist;
+package ph.codeia.fist.deprecated;
 
 /*
  * This file is a part of the fist project.
@@ -7,14 +7,15 @@ package ph.codeia.fist;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
+import ph.codeia.fist.Deferred;
 import ph.codeia.fist.moore.Mu;
 
 /**
  * FST - Finite State Transducer.
  * <p>
- * S, Σ, Λ, s0::S, T::S*Σ -> S, G::S*Σ -> Λ (Mealy)
- * S, Σ, Λ, s0::S, T::S*Σ -> S*Λ (alt Mealy)
- * S, Σ, Λ, s0::S, T::S*Σ -> S, G::S -> Λ (Moore)
+ * S, Σ, Λ, s0::S, T::S*Σ -&gt; S, G::S*Σ -&gt; Λ (Mealy)
+ * S, Σ, Λ, s0::S, T::S*Σ -&gt; S*Λ (alt Mealy)
+ * S, Σ, Λ, s0::S, T::S*Σ -&gt; S, G::S -&gt; Λ (Moore)
  *
  * @param <S> The state type
  * @param <A> The action type
@@ -46,7 +47,7 @@ public final class Fst<S, A extends Fst.Action<? super S, ?, ? extends A>> {
      * it is a little awkward "pattern matching" against the actor type (which you
      * will do a lot in actions to unwrap the state) because you would need to
      * implement the impure branches even though they will never be called. See
-     * {@link ph.codeia.fist.content.Loadable.Case} to see what I mean. Code
+     * {@code ph.codeia.fist.content.Loadable.Case} to see what I mean. Code
      * generation may solve this.
      *
      * @param <S> The state type

@@ -6,16 +6,14 @@ package ph.codeia.fist;
 
 import android.os.Handler;
 import android.os.Looper;
-import android.util.Log;
 
-import ph.codeia.fist.moore.AsyncRunner;
-import ph.codeia.fist.moore.Mu;
+import ph.codeia.fist.moore.AsyncMoore;
 
-public class AndroidRunner<S> extends AsyncRunner<S> {
+public class AndroidMoore<S> extends AsyncMoore<S> {
 
     private static final Handler HANDLER = new Handler(Looper.getMainLooper());
 
-    public AndroidRunner(S state) {
+    public AndroidMoore(S state) {
         super(state);
     }
 

@@ -11,7 +11,7 @@ public interface Loader<T> {
 
     T onFetch() throws Exception;
 
-    default Mi.Action<Loadable<T>, Loadable.Ui<T>> reset() {
+    static <T> Mi.Action<Loadable<T>, Loadable.Ui<T>> reset() {
         return (content, view) -> {
             content.state = Loadable.State.NOTHING;
             content.data = null;
@@ -38,8 +38,9 @@ public interface Loader<T> {
             }
             if (!canFetch) return Mi.noop();
             content.state = content.state == Loadable.State.LOADED ?
-                    Loadable.State.REFRESHING : Loadable.State.LOADING;
-            return Mi.<Loadable<T>, Loadable.Ui<T>> reenter().then(this::fetch);
+                    Loadable.State.REFRESHING :
+                    Loadable.State.LOADING;
+            return Mi.Action.pure(this::fetch).after(Mi.reenter());
         };
     }
 

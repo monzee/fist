@@ -1,4 +1,4 @@
-package ph.codeia.fist;
+package ph.codeia.fist.deprecated;
 
 /*
  * This file is a part of the fist project.
@@ -16,6 +16,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
+
+import ph.codeia.fist.Deferred;
 
 public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.Action<S, O, A>>
         implements Fst.Machine<S, O, A>

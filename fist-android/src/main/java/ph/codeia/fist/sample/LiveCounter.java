@@ -8,14 +8,11 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
 import android.support.v7.app.AppCompatActivity;
-import android.text.Spannable;
-import android.text.SpannableString;
-import android.text.SpannableStringBuilder;
 import android.widget.Button;
 import android.widget.TextView;
 
 import ph.codeia.fist.AndroidMachine;
-import ph.codeia.fist.Fst;
+import ph.codeia.fist.deprecated.Fst;
 import ph.codeia.fist.R;
 
 public class LiveCounter extends AppCompatActivity implements Periodic.View {

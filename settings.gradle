@@ -1,1 +1,1 @@
-include ':app', ':fist-core', ':fist-android', ':mvi-common', ':utils-fragment', ':mvp-common', ':mvi', ':mosby-sample-mvi', ':presentermanager'
+include ':app', ':fist-core', ':fist-android', ':hn', ':fist-reactive'

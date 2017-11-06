@@ -4,13 +4,13 @@ package ph.codeia.fist.content;
  * This file is a part of the fist project.
  */
 
-import ph.codeia.fist.mealy.Mi;
+import ph.codeia.fist.Effects;
 
 @SuppressWarnings("NewApi")
 public class Loadable<T> {
 
-    public interface Ui<T> extends Mi.Effects<Loadable<T>> {
-        enum Event {INIT, LOAD, REFRESH}
+    public interface Ui<T> extends Effects<Loadable<T>> {
+        enum Event { INIT, LOAD, REFRESH }
 
         void begin();
 
@@ -51,7 +51,7 @@ public class Loadable<T> {
         }
     }
 
-    enum State {BEGIN, LOADING, LOADED, NOTHING, REFRESHING}
+    enum State { BEGIN, LOADING, LOADED, NOTHING, REFRESHING }
 
     State state = State.BEGIN;
     T data;

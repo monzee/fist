@@ -8,9 +8,8 @@ import android.os.Handler;
 import android.os.Looper;
 
 import ph.codeia.fist.mealy.AsyncMealy;
-import ph.codeia.fist.mealy.Mi;
 
-public class AndroidMealy<S, C extends Mi.Effects<S>> extends AsyncMealy<S, C> {
+public class AndroidMealy<S, C extends Effects<S>> extends AsyncMealy<S, C> {
 
     private static final Handler HANDLER = new Handler(Looper.getMainLooper());
 

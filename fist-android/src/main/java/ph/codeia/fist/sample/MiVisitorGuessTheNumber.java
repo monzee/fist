@@ -15,11 +15,12 @@ import android.widget.Toast;
 import java.util.Random;
 
 import ph.codeia.fist.AndroidMealy;
+import ph.codeia.fist.Effects;
 import ph.codeia.fist.R;
 import ph.codeia.fist.mealy.Mi;
 
-@SuppressLint({ "DefaultLocale", "SetTextI18n" })
-public class MiGuessTheNumber extends AppCompatActivity implements Ui {
+@SuppressLint({"DefaultLocale", "SetTextI18n"})
+public class MiVisitorGuessTheNumber extends AppCompatActivity implements Ui {
 
     private Mi.Runner<Game<Ui>, Ui> game;
     private Mi.Actor<Game<Ui>, Ui> screen;
@@ -41,7 +42,7 @@ public class MiGuessTheNumber extends AppCompatActivity implements Ui {
             String text = textView.getText().toString();
             if (keyEvent != null || text.isEmpty()) return false;
             screen.exec(Player.guess(Integer.parseInt(text)));
-            return game.inspect(Game::isNotDone);
+            return game.project(Game::isNotDone);
         });
         screen = Mi.bind(game, this);
     }
@@ -64,16 +65,13 @@ public class MiGuessTheNumber extends AppCompatActivity implements Ui {
     }
 
     @Override
-    public void say(String message, Object... fmtArgs) {
-        Toast.makeText(
-                this,
-                String.format(message, fmtArgs),
-                Toast.LENGTH_SHORT
-        ).show();
+    public void tell(String message, Object... fmtArgs) {
+        Toast.makeText(this, String.format(message, fmtArgs), Toast.LENGTH_SHORT)
+                .show();
     }
 
     @Override
-    public void clear() {
+    public void clearInput() {
         input.setText(null);
     }
 
@@ -81,7 +79,9 @@ public class MiGuessTheNumber extends AppCompatActivity implements Ui {
     public Mi<Game<Ui>, Ui> begin(int maxTries) {
         message.setText(String.format(""
                 + "Choose a number from 1-100 inclusive.%n"
-                + "You have %d tries to get it right.", maxTries));
+                + "You have %d tries to get it right.",
+                maxTries
+        ));
         return null;
     }
 
@@ -155,10 +155,10 @@ interface Game<C> {
     }
 }
 
-interface Ui extends Mi.Effects<Game<Ui>>, Game.State<Ui> {
-    void say(String message, Object... fmtArgs);
+interface Ui extends Effects<Game<Ui>>, Game.State<Ui> {
+    void tell(String message, Object... fmtArgs);
 
-    void clear();
+    void clearInput();
 
     @Override
     default void onEnter(Game<Ui> game) {
@@ -171,11 +171,11 @@ interface Player {
 
     static Mi.Action<Game<Ui>, Ui> newGame(int maxTries) {
         return (_g, view) -> {
-            view.say("Starting new game in 10 seconds");
+            view.tell("Starting new game in 10 seconds");
             return Mi.async(() -> {
                 Thread.sleep(10_000);
                 return (_fg, futureView) -> {
-                    futureView.clear();
+                    futureView.clearInput();
                     return Mi.enter(Game.begin(maxTries));
                 };
             });
@@ -186,7 +186,7 @@ interface Player {
         return (game, view) -> game.match(new Game.State<Ui>() {
             @Override
             public Mi<Game<Ui>, Ui> begin(int maxTries) {
-                view.clear();
+                view.clearInput();
                 return playing(n, RNG.nextInt(100) + 1, maxTries, maxTries);
             }
 
@@ -201,13 +201,13 @@ interface Player {
                 if (triesLeft == 1) {
                     return newGame(maxTries).after(Mi.enter(s -> s.lost(secret)));
                 }
-                view.clear();
+                view.clearInput();
                 return Mi.enter(s -> s.playing(n, secret, triesLeft - 1, maxTries));
             }
 
             @Override
             public Mi<Game<Ui>, Ui> otherwise() {
-                view.say("Wait for the next game.");
+                view.tell("Wait for the next game.");
                 return Mi.noop();
             }
         });

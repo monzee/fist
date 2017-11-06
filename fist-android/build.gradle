@@ -1,4 +1,5 @@
 apply plugin: 'com.android.library'
+apply plugin: 'maven-publish'
 
 android {
     compileSdkVersion 25
@@ -6,7 +7,7 @@ android {
         minSdkVersion 16
         targetSdkVersion 25
         versionCode 1
-        versionName "1.0"
+        versionName "v$LIBRARY_VERSION"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -22,10 +23,80 @@ android {
 }
 
 dependencies {
-    compile project(':fist-core')
-    androidTestCompile('com.android.support.test.espresso:espresso-core:2.2.2') {
+    api project(':fist-core')
+    compileOnly 'com.android.support:appcompat-v7:25.4.0'
+    testImplementation 'junit:junit:4.12'
+    androidTestImplementation('com.android.support.test.espresso:espresso-core:2.2.2') {
         exclude group: 'com.android.support', module: 'support-annotations'
     }
-    provided 'com.android.support:appcompat-v7:25.4.0'
-    testCompile 'junit:junit:4.12'
+}
+
+publishing {
+    repositories.maven {
+        name 'bintray'
+        url 'https://api.bintray.com/maven/monzee/jvm/fist-android/'
+        credentials {
+            username = BINTRAY_USER
+            password = BINTRAY_API_KEY
+        }
+    }
+
+    android.libraryVariants.matching { it.buildType.name == 'release' }.all {
+        def stem = name.capitalize()
+        def hardDeps = variantData.variantDependency.apiElements.allDependencies
+        def allDeps = variantData.variantDependency.runtimeElements.allDependencies
+        def docs = task(
+            "javadoc$stem",
+            dependsOn: ':fist-core:javadoc',
+            type: Javadoc,
+            group: 'documentation'
+        ) {
+            source = javaCompile.source
+            classpath += javaCompile.classpath + files(android.bootClasspath)
+            title = 'Fist Android'
+            options {
+                links '../../../../fist-core/build/docs/javadoc'
+                links 'https://developer.android.com/reference'
+            }
+            exclude '**/BuildConfig.java'
+            exclude '**/R.java'
+        }
+
+        publications.create(name, MavenPublication) {
+            artifact source: outputs[0].outputFile, builtBy: assemble
+
+            artifact task("jar${stem}Sources", type: Jar, group: 'publishing') {
+                classifier 'sources'
+                from javaCompile.source
+            }
+
+            artifact task("jar${stem}Javadoc", type: Jar, dependsOn: docs, group: 'publishing') {
+                classifier 'javadoc'
+                from docs.destinationDir
+            }
+
+            pom.withXml {
+                def contents = asNode().children().last()
+                contents + pomMetadata(
+                    name: 'Fist Android',
+                    description: 'Android implementation of the async abstract machines and samples',
+                    url: 'https://github.com/monzee/fist'
+                )
+                contents + node {
+                    dependencies {
+                        allDeps.each { dep ->
+                            dependency {
+                                groupId dep.group
+                                artifactId dep.name
+                                version dep.version
+                                if (!(dep in hardDeps)) {
+                                    scope 'provided'
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

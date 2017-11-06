@@ -16,6 +16,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import ph.codeia.fist.deprecated.ExecutorMachine;
+import ph.codeia.fist.deprecated.Fst;
+
 import static org.junit.Assert.*;
 
 public class AsyncMachineTest {
