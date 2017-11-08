@@ -21,7 +21,7 @@ import ph.codeia.fist.mealy.Mi;
 public final class Mu<S> {
 
     public static <S> Mu<S> noop() {
-        return new Mu<>(Fst::noop);
+        return new Mu<>(Machine::noop);
     }
 
     public static <S> Mu<S> enter(S newState) {
@@ -29,7 +29,7 @@ public final class Mu<S> {
     }
 
     public static <S> Mu<S> reenter() {
-        return new Mu<>(Fst::reenter);
+        return new Mu<>(Machine::reenter);
     }
 
     public static <S> Mu<S> forward(Action<S> action) {
@@ -69,8 +69,8 @@ public final class Mu<S> {
         this.command = command;
     }
 
-    public void run(Fst<S> fst) {
-        command.run(fst);
+    public void run(Machine<S> machine) {
+        command.run(machine);
     }
 
     public Mu<S> then(Mu<S> next) {
@@ -88,8 +88,20 @@ public final class Mu<S> {
         return then(async(thunk));
     }
 
+    public Mu<S> after(Mu<S> prev) {
+        return prev.then(this);
+    }
+
+    public Mu<S> after(Action<S> action) {
+        return forward(action).then(this);
+    }
+
+    public Mu<S> after(Callable<Action<S>> thunk) {
+        return async(thunk).then(this);
+    }
+
     private interface Command<S> {
-        void run(Fst<S> fst);
+        void run(Machine<S> machine);
     }
 
     public interface Action<S> {
@@ -105,10 +117,6 @@ public final class Mu<S> {
 
         static <S> Action<S> pure(Callable<Action<S>> thunk) {
             return s -> Mu.async(thunk);
-        }
-
-        static <S> Action<S> zero() {
-            return s -> Mu.noop();
         }
 
         default Action<S> then(S state) {
@@ -136,10 +144,10 @@ public final class Mu<S> {
         }
     }
 
-    public interface Fst<S> {
+    public interface Machine<S> {
         void noop();
-        void enter(S newState);
         void reenter();
+        void enter(S newState);
         void forward(Action<S> action);
         void async(Callable<Action<S>> thunk);
         void raise(Throwable e);

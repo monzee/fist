@@ -14,11 +14,11 @@ import android.widget.Toast;
 import java.util.Random;
 import java.util.concurrent.TimeoutException;
 
-import ph.codeia.fist.AndroidMealy;
+import ph.codeia.fist.AndroidFst;
+import ph.codeia.fist.Fst;
 import ph.codeia.fist.R;
 import ph.codeia.fist.content.Loadable;
 import ph.codeia.fist.content.Loader;
-import ph.codeia.fist.mealy.Mi;
 
 public class MiLoadableContent extends AppCompatActivity implements Loadable.Ui<String> {
 
@@ -33,12 +33,11 @@ public class MiLoadableContent extends AppCompatActivity implements Loadable.Ui<
                 return null;
             }
         };
-        final Mi.Runner<Loadable<String>, Loadable.Ui<String>> content =
-                new AndroidMealy<>(new Loadable<>());
+        final Fst<Loadable<String>> content = new AndroidFst<>(new Loadable<>());
     }
 
     private Scope my;
-    private Mi.Actor<Loadable<String>, Loadable.Ui<String>> screen;
+    private Fst.Actor<Loadable<String>, Loadable.Ui<String>> screen;
     private TextView message;
     private Button refresh;
 
@@ -48,7 +47,7 @@ public class MiLoadableContent extends AppCompatActivity implements Loadable.Ui<
         if (my == null) {
             my = new Scope();
         }
-        screen = Mi.bind(my.content, this);
+        screen = my.content.bind(this);
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_strawman);
         message = (TextView) findViewById(R.id.the_message);

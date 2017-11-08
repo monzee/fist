@@ -60,7 +60,7 @@ public abstract class AsyncMoore<S> implements Mu.Runner<S> {
     @Override
     public void exec(Effects<S> effects, Mu.Action<S> action) {
         if (!isRunning) return;
-        runOnMainThread(() -> action.apply(state).run(new Mu.Fst<S>() {
+        runOnMainThread(() -> action.apply(state).run(new Mu.Machine<S>() {
             @Override
             public void noop() {
             }

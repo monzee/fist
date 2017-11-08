@@ -7,66 +7,56 @@ package ph.codeia.fist.sample;
 import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
-import android.support.v7.app.AppCompatActivity;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.Random;
 
-import ph.codeia.fist.AndroidMealy;
+import ph.codeia.fist.AndroidFst;
 import ph.codeia.fist.Effects;
+import ph.codeia.fist.Fst;
 import ph.codeia.fist.R;
+import ph.codeia.fist.StatefulFragment;
 import ph.codeia.fist.mealy.Mi;
 
 @SuppressLint({"DefaultLocale", "SetTextI18N"})
-public class MiEnumGuessTheNumber extends AppCompatActivity implements Play.Ui {
-
-    private Mi.Runner<GuessingGame, Play.Ui> game;
-    private Mi.Actor<GuessingGame, Play.Ui> screen;
+public class MiEnumGuessTheNumber extends StatefulFragment<GuessingGame, Play.Ui>
+        implements Play.Ui
+{
+    private final Fst<GuessingGame> game = new AndroidFst<>(new GuessingGame(6));
     private TextView message;
     private EditText input;
 
     @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
-        //noinspection unchecked
-        game = (Mi.Runner<GuessingGame, Play.Ui>) getLastCustomNonConfigurationInstance();
-        if (game == null) {
-            game = new AndroidMealy<>(new GuessingGame(6));
-        }
-        screen = Mi.bind(game, this);
-        super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_guessing_game);
-        message = (TextView) findViewById(R.id.message);
-        input = (EditText) findViewById(R.id.guess);
+    protected Fst.Actor<GuessingGame, Play.Ui> initialState() {
+        return game.bind(this);
+    }
+
+    @Nullable
+    @Override
+    public View onCreateView(
+            LayoutInflater inflater, @Nullable ViewGroup container,
+            @Nullable Bundle savedInstanceState
+    ) {
+        View root = inflater.inflate(R.layout.activity_guessing_game, container, false);
+        message = (TextView) root.findViewById(R.id.message);
+        input = (EditText) root.findViewById(R.id.guess);
         input.setOnEditorActionListener((textView, i, keyEvent) -> {
             String text = textView.getText().toString();
             if (keyEvent != null || text.isEmpty()) return false;
-            screen.exec(Play.guess(Integer.parseInt(text)));
+            exec(Play.guess(Integer.parseInt(text)));
             return game.project(GuessingGame::isNotDone);
         });
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        screen.start();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        screen.stop();
-    }
-
-    @Override
-    public Object onRetainCustomNonConfigurationInstance() {
-        return game;
+        return root;
     }
 
     @Override
     public void tell(String message, Object... fmtArgs) {
-        Toast.makeText(this, String.format(message, fmtArgs), Toast.LENGTH_SHORT)
+        Toast.makeText(getContext(), String.format(message, fmtArgs), Toast.LENGTH_SHORT)
                 .show();
     }
 

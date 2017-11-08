@@ -13,11 +13,11 @@ import ph.codeia.fist.Fn;
 public final class Mi<S, E> {
 
     public static <S, E> Mi<S, E> noop() {
-        return new Mi<>(Fst::noop);
+        return new Mi<>(Machine::noop);
     }
 
     public static <S, E> Mi<S, E> reenter() {
-        return new Mi<>(Fst::reenter);
+        return new Mi<>(Machine::reenter);
     }
 
     public static <S, E> Mi<S, E> enter(S newState) {
@@ -61,27 +61,39 @@ public final class Mi<S, E> {
         this.command = command;
     }
 
-    public void run(Fst<S, E> fst) {
-        command.run(fst);
+    public void run(Machine<S, E> machine) {
+        command.run(machine);
     }
 
     public Mi<S, E> then(Mi<S, E> next) {
-        return new Mi<>(fst -> {
-            run(fst);
-            next.run(fst);
+        return new Mi<>(machine -> {
+            run(machine);
+            next.run(machine);
         });
     }
 
-    public Mi<S, E> then(Mi.Action<S, E> action) {
-        return then(Mi.forward(action));
+    public Mi<S, E> then(Action<S, E> action) {
+        return then(forward(action));
     }
 
-    public Mi<S, E> then(Callable<Mi.Action<S, E>> thunk) {
-        return then(Mi.async(thunk));
+    public Mi<S, E> then(Callable<Action<S, E>> thunk) {
+        return then(async(thunk));
+    }
+
+    public Mi<S, E> after(Mi<S, E> prev) {
+        return prev.then(this);
+    }
+
+    public Mi<S, E> after(Action<S, E> action) {
+        return forward(action).then(this);
+    }
+
+    public Mi<S, E> after(Callable<Action<S, E>> thunk) {
+        return async(thunk).then(this);
     }
 
     private interface Command<S, E> {
-        void run(Fst<S, E> fst);
+        void run(Machine<S, E> machine);
     }
 
     public interface Action<S, E> {
@@ -117,10 +129,6 @@ public final class Mi<S, E> {
             return (s, e) -> Mi.enter(f.apply(s));
         }
 
-        static <S, E> Action<S, E> zero() {
-            return (s, e) -> Mi.noop();
-        }
-
         default Action<S, E> then(Action<S, E> action) {
             return (s, e) -> apply(s, e).then(action);
         }
@@ -140,9 +148,17 @@ public final class Mi<S, E> {
         default Mi<S, E> after(Mi<S, E> command) {
             return command.then(this);
         }
+
+        default Action<S, E> after(Action<S, E> action) {
+            return action.then(this);
+        }
+
+        default Callable<Action<S, E>> after(Callable<Action<S, E>> thunk) {
+            return () -> thunk.call().then(this);
+        }
     }
 
-    public interface Fst<S, E> {
+    public interface Machine<S, E> {
         void noop();
         void reenter();
         void enter(S newState);

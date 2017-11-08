@@ -6,6 +6,10 @@ plugins {
 sourceCompatibility = "1.8"
 targetCompatibility = "1.8"
 
+dependencies {
+    testImplementation 'junit:junit:4.12'
+}
+
 javadoc {
     title = 'Fist Core'
     options.links 'https://developer.android.com/reference'

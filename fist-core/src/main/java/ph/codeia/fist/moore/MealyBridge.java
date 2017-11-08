@@ -19,7 +19,7 @@ public class MealyBridge<S, E extends Effects<S>> implements Mi.Action<S, E> {
 
     @Override
     public Mi<S, E> apply(S state, E ignored) {
-        return new Mu.Fst<S>() {
+        return new Mu.Machine<S>() {
             Mi<S, E> command;
 
             {
