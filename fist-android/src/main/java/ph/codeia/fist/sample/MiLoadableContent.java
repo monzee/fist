@@ -6,7 +6,10 @@ package ph.codeia.fist.sample;
 
 import android.os.Bundle;
 import android.support.annotation.Nullable;
-import android.support.v7.app.AppCompatActivity;
+import android.support.v4.app.Fragment;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -14,66 +17,57 @@ import android.widget.Toast;
 import java.util.Random;
 import java.util.concurrent.TimeoutException;
 
+import ph.codeia.fist.AndroidActors;
 import ph.codeia.fist.AndroidFst;
 import ph.codeia.fist.Fst;
 import ph.codeia.fist.R;
 import ph.codeia.fist.content.Loadable;
 import ph.codeia.fist.content.Loader;
 
-public class MiLoadableContent extends AppCompatActivity implements Loadable.Ui<String> {
+public class MiLoadableContent extends Fragment implements Loadable.Ui<String>
+{
+    private static final Random RNG = new Random();
 
-    private static class Scope {
-        final Random rng = new Random();
-        final Loader<String> loader = () -> {
-            Thread.sleep(10_000);
-            if (rng.nextBoolean()) {
-                return "Lorem ipsum dolor sit amet";
-            }
-            else {
-                return null;
-            }
-        };
-        final Fst<Loadable<String>> content = new AndroidFst<>(new Loadable<>());
-    }
+    private static final Loader<String> LOADER = () -> {
+        Thread.sleep((RNG.nextInt(5) + 2) * 1_000);
+        if (RNG.nextBoolean()) {
+            return "Lorem ipsum dolor sit amet";
+        }
+        else {
+            return null;
+        }
+    };
 
-    private Scope my;
-    private Fst.Actor<Loadable<String>, Loadable.Ui<String>> screen;
+    private Fst.Actor<Loadable<String>, Loadable.Ui<String>> ui;
     private TextView message;
     private Button refresh;
 
     @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
-        my = (Scope) getLastCustomNonConfigurationInstance();
-        if (my == null) {
-            my = new Scope();
-        }
-        screen = my.content.bind(this);
+    public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_strawman);
-        message = (TextView) findViewById(R.id.the_message);
-        refresh = (Button) findViewById(R.id.do_refresh);
-        refresh.setOnClickListener(_v -> screen.exec(my.loader.load()));
+        setRetainInstance(true);
+        ui = AndroidActors.of(this).bind(
+                Loadable.of(new AndroidFst.Builder().timeout(5_000)),
+                this
+        );
+    }
+
+    @Nullable
+    @Override
+    public View onCreateView(
+            LayoutInflater inflater,
+            @Nullable ViewGroup container,
+            @Nullable Bundle savedInstanceState
+    ) {
+        View root = inflater.inflate(R.layout.activity_strawman, container, false);
+        message = root.findViewById(R.id.the_message);
+        refresh = root.findViewById(R.id.do_refresh);
+        refresh.setOnClickListener(_v -> ui.exec(LOADER.load()));
+        return root;
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        screen.start();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        screen.stop();
-    }
-
-    @Override
-    public Object onRetainCustomNonConfigurationInstance() {
-        return my;
-    }
-
-    @Override
-    public boolean canFetch(Event from, String current) {
+    public boolean shouldFetch(Event from, String current) {
         switch (from) {
         case INIT:
             tell("Hello, world!");
@@ -97,7 +91,7 @@ public class MiLoadableContent extends AppCompatActivity implements Loadable.Ui<
 
     @Override
     public void begin() {
-        screen.exec(my.loader.load());
+        ui.exec(LOADER.load());
     }
 
     @Override
@@ -131,7 +125,7 @@ public class MiLoadableContent extends AppCompatActivity implements Loadable.Ui<
     public void handle(Throwable e) {
         if (e instanceof TimeoutException) {
             tell("Unable to fetch in time.");
-            screen.exec(Loader.reset());
+            ui.exec(Loadable::reset);
         }
         else {
             throw new RuntimeException(e);
@@ -139,6 +133,7 @@ public class MiLoadableContent extends AppCompatActivity implements Loadable.Ui<
     }
 
     void tell(String tpl, Object... fmtArgs) {
-        Toast.makeText(this, String.format(tpl, fmtArgs), Toast.LENGTH_SHORT).show();
+        Toast.makeText(getContext(), String.format(tpl, fmtArgs), Toast.LENGTH_SHORT)
+                .show();
     }
 }

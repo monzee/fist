@@ -5,6 +5,8 @@ package ph.codeia.fist.content;
  */
 
 import ph.codeia.fist.Effects;
+import ph.codeia.fist.Fst;
+import ph.codeia.fist.moore.Mu;
 
 @SuppressWarnings("NewApi")
 public class Loadable<T> {
@@ -22,7 +24,7 @@ public class Loadable<T> {
 
         void empty();
 
-        default boolean canFetch(Event from, T current) {
+        default boolean shouldFetch(Event from, T current) {
             return true;
         }
 
@@ -51,8 +53,18 @@ public class Loadable<T> {
         }
     }
 
+    public static <T> Fst<Loadable<T>> of(Fst.Builder builder) {
+        return builder.build(new Loadable<T>());
+    }
+
     enum State { BEGIN, LOADING, LOADED, NOTHING, REFRESHING }
 
     State state = State.BEGIN;
     T data;
+
+    public Mu<Loadable<T>> reset() {
+        state = State.NOTHING;
+        data = null;
+        return Mu.reenter();
+    }
 }

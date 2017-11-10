@@ -11,26 +11,18 @@ public interface Loader<T> {
 
     T onFetch() throws Exception;
 
-    static <T> Mi.Action<Loadable<T>, Loadable.Ui<T>> reset() {
-        return (content, view) -> {
-            content.state = Loadable.State.NOTHING;
-            content.data = null;
-            return Mi.reenter();
-        };
-    }
-
     default Mi.Action<Loadable<T>, Loadable.Ui<T>> load() {
         return (content, view) -> {
             final boolean canFetch;
             switch (content.state) {
             case BEGIN:
-                canFetch = view.canFetch(Loadable.Ui.Event.INIT, null);
+                canFetch = view.shouldFetch(Loadable.Ui.Event.INIT, null);
                 break;
             case NOTHING:
-                canFetch = view.canFetch(Loadable.Ui.Event.LOAD, null);
+                canFetch = view.shouldFetch(Loadable.Ui.Event.LOAD, null);
                 break;
             case LOADED:
-                canFetch = view.canFetch(Loadable.Ui.Event.REFRESH, content.data);
+                canFetch = view.shouldFetch(Loadable.Ui.Event.REFRESH, content.data);
                 break;
             default:
                 canFetch = false;

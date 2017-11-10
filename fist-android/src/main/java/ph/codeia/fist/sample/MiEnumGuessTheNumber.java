@@ -7,6 +7,7 @@ package ph.codeia.fist.sample;
 import android.annotation.SuppressLint;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
+import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -16,24 +17,26 @@ import android.widget.Toast;
 
 import java.util.Random;
 
+import ph.codeia.fist.AndroidActors;
 import ph.codeia.fist.AndroidFst;
 import ph.codeia.fist.Effects;
 import ph.codeia.fist.Fst;
 import ph.codeia.fist.R;
-import ph.codeia.fist.StatefulFragment;
 import ph.codeia.fist.mealy.Mi;
 
 @SuppressLint({"DefaultLocale", "SetTextI18N"})
-public class MiEnumGuessTheNumber extends StatefulFragment<GuessingGame, Play.Ui>
-        implements Play.Ui
+public class MiEnumGuessTheNumber extends Fragment implements Play.Ui
 {
     private final Fst<GuessingGame> game = new AndroidFst<>(new GuessingGame(6));
+    private Fst.Actor<GuessingGame, Play.Ui> ui;
     private TextView message;
     private EditText input;
 
     @Override
-    protected Fst.Actor<GuessingGame, Play.Ui> initialState() {
-        return game.bind(this);
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setRetainInstance(true);
+        ui = AndroidActors.of(this).bind(game, this);
     }
 
     @Nullable
@@ -43,12 +46,12 @@ public class MiEnumGuessTheNumber extends StatefulFragment<GuessingGame, Play.Ui
             @Nullable Bundle savedInstanceState
     ) {
         View root = inflater.inflate(R.layout.activity_guessing_game, container, false);
-        message = (TextView) root.findViewById(R.id.message);
-        input = (EditText) root.findViewById(R.id.guess);
+        message = root.findViewById(R.id.message);
+        input = root.findViewById(R.id.guess);
         input.setOnEditorActionListener((textView, i, keyEvent) -> {
             String text = textView.getText().toString();
             if (keyEvent != null || text.isEmpty()) return false;
-            exec(Play.guess(Integer.parseInt(text)));
+            ui.exec(Play.guess(Integer.parseInt(text)));
             return game.project(GuessingGame::isNotDone);
         });
         return root;
@@ -118,7 +121,6 @@ class GuessingGame {
         secret = RNG.nextInt(100) + 1;
         this.maxTries = maxTries;
         triesLeft = maxTries;
-        String s = "123";
     }
 
     boolean isNotDone() {

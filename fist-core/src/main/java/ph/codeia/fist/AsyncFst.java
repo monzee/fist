@@ -12,6 +12,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -35,8 +36,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
         }
 
         public Builder timeout(long duration, TimeUnit unit) {
-            timeoutMillis = unit.toMillis(duration);
-            return this;
+            return timeout(unit.toMillis(duration));
         }
 
         public Builder workOn(ExecutorService worker) {
@@ -71,7 +71,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
         timeout = builder.timeoutMillis;
     }
 
-    public AsyncFst(S state) {
+    protected AsyncFst(S state) {
         this(state, new Builder());
     }
 
@@ -109,7 +109,10 @@ public abstract class AsyncFst<S> implements Fst<S> {
 
     @Override
     public void exec(Effects<S> effects, Mu.Action<S> action) {
-        if (!isRunning) return;
+        if (!isRunning) {
+            muBacklog.add(new FutureTask<>(() -> action));
+            return;
+        }
         runOnMainThread(() -> action.apply(state).run(new Mu.Machine<S>() {
             @Override
             public void noop() {
@@ -147,7 +150,10 @@ public abstract class AsyncFst<S> implements Fst<S> {
 
     @Override
     public <E extends Effects<S>> void exec(E effects, Mi.Action<S, E> action) {
-        if (!isRunning) return;
+        if (!isRunning) {
+            miBacklog.add(new FutureTask<>(() -> action));
+            return;
+        }
         runOnMainThread(() -> action.apply(state, effects).run(new Mi.Machine<S, E>() {
             @Override
             public void noop() {
@@ -195,7 +201,9 @@ public abstract class AsyncFst<S> implements Fst<S> {
         AtomicReference<Future<?>> joinRef = new AtomicReference<>();
         joinRef.set(joiner.submit(() -> {
             try {
-                Mu.Action<S> action = work.get(timeout, TimeUnit.MILLISECONDS);
+                Mu.Action<S> action = timeout > 0 ?
+                        work.get(timeout, TimeUnit.MILLISECONDS) :
+                        work.get();
                 miBacklog.remove(work);
                 Effects<S> effects = weakEffects.get();
                 if (effects != null) {
@@ -228,7 +236,9 @@ public abstract class AsyncFst<S> implements Fst<S> {
         AtomicReference<Future<?>> joinRef = new AtomicReference<>();
         joinRef.set(joiner.submit(() -> {
             try {
-                Mi.Action<S, E> action = work.get(timeout, TimeUnit.MILLISECONDS);
+                Mi.Action<S, E> action = timeout > 0 ?
+                        work.get(timeout, TimeUnit.MILLISECONDS) :
+                        work.get();
                 E effects = weakEffects.get();
                 if (effects == null) {
                     miBacklog.remove(work);

@@ -9,6 +9,18 @@ import ph.codeia.fist.moore.Mu;
 
 @SuppressWarnings("NewApi")
 public interface Fst<S> {
+
+    interface Actor<S, E extends Effects<S>> {
+        void start();
+        void stop();
+        void exec(Mu.Action<S> action);
+        void exec(Mi.Action<S, E> action);
+    }
+
+    interface Builder {
+        <S> Fst<S> build(S state);
+    }
+
     void start(Effects<S>... effects);
     void stop();
     void exec(Effects<S> effects, Mu.Action<S> action);
@@ -45,16 +57,5 @@ public interface Fst<S> {
                 Fst.this.exec(effects, action);
             }
         };
-    }
-
-    interface Actor<S, E extends Effects<S>> {
-        void start();
-        void stop();
-        void exec(Mu.Action<S> action);
-        void exec(Mi.Action<S, E> action);
-    }
-
-    interface Builder {
-        <S> Fst<S> build(S state);
     }
 }

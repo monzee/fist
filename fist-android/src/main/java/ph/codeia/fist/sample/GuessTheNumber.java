@@ -14,7 +14,9 @@ import android.widget.TextView;
 import java.util.EnumSet;
 import java.util.Random;
 
-import ph.codeia.fist.AndroidMoore;
+import ph.codeia.fist.AndroidActors;
+import ph.codeia.fist.AndroidFst;
+import ph.codeia.fist.Fst;
 import ph.codeia.fist.R;
 import ph.codeia.fist.moore.Mu;
 
@@ -36,20 +38,20 @@ public class GuessTheNumber extends AppCompatActivity {
         }
     }
 
-    private Mu.Runner<Game> game;
-    private Mu.Actor<Game> screen;
+    private Fst<Game> game;
+    private Fst.Actor<Game, ?> screen;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         //noinspection unchecked
-        game = (AndroidMoore<Game>) getLastCustomNonConfigurationInstance();
+        game = (AndroidFst<Game>) getLastCustomNonConfigurationInstance();
         if (game == null) {
-            game = new AndroidMoore<>(new Game());
+            game = new AndroidFst<>(new Game());
         }
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_guessing_game);
-        TextView message = (TextView) findViewById(R.id.message);
-        EditText input = (EditText) findViewById(R.id.guess);
+        TextView message = findViewById(R.id.message);
+        EditText input = findViewById(R.id.guess);
         input.setOnEditorActionListener((textView, i, keyEvent) -> {
             String text = textView.getText().toString();
             if (keyEvent != null || text.isEmpty()) return false;
@@ -58,19 +60,7 @@ public class GuessTheNumber extends AppCompatActivity {
             if (notDone) textView.setText(null);
             return notDone;
         });
-        screen = Mu.bind(game, state -> render(state, message));
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        screen.start();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        screen.stop();
+        screen = AndroidActors.of(this).bind(game, state -> render(state, message));
     }
 
     @Override
