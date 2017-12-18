@@ -13,7 +13,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import ph.codeia.fist.AndroidActors;
+import ph.codeia.fist.AndroidTroupe;
 import ph.codeia.fist.BlockingFst;
 import ph.codeia.fist.Fst;
 import ph.codeia.fist.moore.Mu;
@@ -27,7 +27,7 @@ public class Counter extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        ui = AndroidActors.of(this).bind(
+        ui = AndroidTroupe.of(this).bind(
                 new BlockingFst<>(0),
                 n -> count.setText(Integer.toString(n))
         );

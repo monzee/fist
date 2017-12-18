@@ -15,6 +15,26 @@ public interface Fst<S> {
         void stop();
         void exec(Mu.Action<S> action);
         void exec(Mi.Action<S, E> action);
+
+        default <T> T project(Fn.Func<S, T> projection) {
+            return new Mu.Action<S>() {
+                T t;
+                { exec(this); }
+
+                @Override
+                public Mu<S> apply(S state) {
+                    t = projection.apply(state);
+                    return Mu.noop();
+                }
+            }.t;
+        }
+
+        default void inspect(Fn.Proc<S> proc) {
+            project(state -> {
+                proc.receive(state);
+                return null;
+            });
+        }
     }
 
     interface Builder {
@@ -55,6 +75,11 @@ public interface Fst<S> {
             @Override
             public void exec(Mi.Action<S, E> action) {
                 Fst.this.exec(effects, action);
+            }
+
+            @Override
+            public <T> T project(Fn.Func<S, T> projection) {
+                return Fst.this.project(projection);
             }
         };
     }

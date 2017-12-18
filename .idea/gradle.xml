@@ -11,6 +11,8 @@
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/fist-android" />
             <option value="$PROJECT_DIR$/fist-core" />
+            <option value="$PROJECT_DIR$/fist-kt-android" />
+            <option value="$PROJECT_DIR$/reddit" />
           </set>
         </option>
         <option name="resolveModulePerSourceSet" value="false" />

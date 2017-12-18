@@ -17,7 +17,7 @@ import android.widget.Toast;
 
 import java.util.Random;
 
-import ph.codeia.fist.AndroidActors;
+import ph.codeia.fist.AndroidTroupe;
 import ph.codeia.fist.AndroidFst;
 import ph.codeia.fist.Effects;
 import ph.codeia.fist.Fst;
@@ -25,8 +25,7 @@ import ph.codeia.fist.R;
 import ph.codeia.fist.mealy.Mi;
 
 @SuppressLint({"DefaultLocale", "SetTextI18N"})
-public class MiEnumGuessTheNumber extends Fragment implements Play.Ui
-{
+public class MiEnumGuessTheNumber extends Fragment implements Play.Ui {
     private final Fst<GuessingGame> game = new AndroidFst<>(new GuessingGame(6));
     private Fst.Actor<GuessingGame, Play.Ui> ui;
     private TextView message;
@@ -36,13 +35,14 @@ public class MiEnumGuessTheNumber extends Fragment implements Play.Ui
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        ui = AndroidActors.of(this).bind(game, this);
+        ui = AndroidTroupe.of(this).bind(game, this);
     }
 
     @Nullable
     @Override
     public View onCreateView(
-            LayoutInflater inflater, @Nullable ViewGroup container,
+            LayoutInflater inflater,
+            @Nullable ViewGroup container,
             @Nullable Bundle savedInstanceState
     ) {
         View root = inflater.inflate(R.layout.activity_guessing_game, container, false);

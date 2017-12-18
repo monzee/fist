@@ -1,4 +1,5 @@
 apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
 apply plugin: 'maven-publish'
 
 android {
@@ -7,7 +8,7 @@ android {
         minSdkVersion 9
         targetSdkVersion 26
         versionCode 1
-        versionName "v$LIBRARY_VERSION"
+        versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -16,44 +17,31 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
-    }
 }
 
 dependencies {
-    api project(':fist-core')
+    api project(':fist-android')
     compileOnly 'com.android.support:appcompat-v7:26.1.0'
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jre7:$kotlin_version"
     testImplementation 'junit:junit:4.12'
-    androidTestImplementation('com.android.support.test.espresso:espresso-core:2.2.2') {
-        exclude group: 'com.android.support', module: 'support-annotations'
-    }
 }
 
-publishing {
-    repositories.maven {
-        name 'bintray'
-        url 'https://api.bintray.com/maven/monzee/jvm/fist-android/'
-        credentials {
-            username = BINTRAY_USER
-            password = BINTRAY_API_KEY
-        }
-    }
+kotlin.experimental.coroutines 'enable'
 
+publishing {
     android.libraryVariants.matching { it.buildType.name == 'release' }.all {
         def stem = name.capitalize()
         def hardDeps = variantData.variantDependency.apiElements.allDependencies
         def allDeps = variantData.variantDependency.runtimeElements.allDependencies
         def docs = task(
-            "javadoc$stem",
-            dependsOn: ':fist-core:javadoc',
-            type: Javadoc,
-            group: 'documentation'
+                "javadoc$stem",
+                dependsOn: ':fist-core:javadoc',
+                type: Javadoc,
+                group: 'documentation'
         ) {
             source = javaCompile.source
             classpath += javaCompile.classpath + files(android.bootClasspath)
-            title = 'Fist Android'
+            title = 'Fist Kotlin Android'
             options {
                 links '../../../../fist-core/build/docs/javadoc'
                 links 'https://developer.android.com/reference'
@@ -78,9 +66,9 @@ publishing {
             pom.withXml {
                 def contents = asNode().children().last()
                 contents + pomMetadata(
-                    name: 'Fist Android',
-                    description: 'Android implementation of the async abstract machines and samples',
-                    url: 'https://github.com/monzee/fist'
+                        name: 'Fist Kotlin Android',
+                        description: 'Kotlin extensions for fist-android',
+                        url: 'https://github.com/monzee/fist'
                 )
                 contents + node {
                     dependencies {

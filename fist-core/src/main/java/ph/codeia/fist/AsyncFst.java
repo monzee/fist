@@ -248,6 +248,13 @@ public abstract class AsyncFst<S> implements Fst<S> {
                     miBacklog.remove(work);
                 }
                 catch (ClassCastException ignored) {
+                    // attempted to join a future that was initiated by a
+                    // different actor type. this could happen only when
+                    // the machine is stopped in the middle of a task and
+                    // then started again and #exec(E, Mi.Action) was
+                    // called with multiple types of E. must not take the
+                    // future off the queue in this case and let something
+                    // else join it.
                 }
             }
             catch (InterruptedException ignored) {

@@ -43,7 +43,7 @@ publishing {
 
             pom.withXml {
                 asNode().children().last() + pomMetadata(
-                    name: 'First Core',
+                    name: 'Fist Core',
                     description: 'Abstract finite state transducer',
                     url: 'https://github.com/monzee/fist'
                 )

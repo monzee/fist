@@ -17,7 +17,7 @@ import android.widget.Toast;
 import java.util.Random;
 import java.util.concurrent.TimeoutException;
 
-import ph.codeia.fist.AndroidActors;
+import ph.codeia.fist.AndroidTroupe;
 import ph.codeia.fist.AndroidFst;
 import ph.codeia.fist.Fst;
 import ph.codeia.fist.R;
@@ -46,7 +46,7 @@ public class MiLoadableContent extends Fragment implements Loadable.Ui<String>
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        ui = AndroidActors.of(this).bind(
+        ui = AndroidTroupe.of(this).bind(
                 Loadable.of(new AndroidFst.Builder().timeout(5_000)),
                 this
         );

@@ -14,7 +14,7 @@ import android.widget.TextView;
 import java.util.EnumSet;
 import java.util.Random;
 
-import ph.codeia.fist.AndroidActors;
+import ph.codeia.fist.AndroidTroupe;
 import ph.codeia.fist.AndroidFst;
 import ph.codeia.fist.Fst;
 import ph.codeia.fist.R;
@@ -60,7 +60,7 @@ public class GuessTheNumber extends AppCompatActivity {
             if (notDone) textView.setText(null);
             return notDone;
         });
-        screen = AndroidActors.of(this).bind(game, state -> render(state, message));
+        screen = AndroidTroupe.of(this).bind(game, state -> render(state, message));
     }
 
     @Override

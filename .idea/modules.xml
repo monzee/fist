@@ -6,6 +6,8 @@
       <module fileurl="file://$PROJECT_DIR$/fist.iml" filepath="$PROJECT_DIR$/fist.iml" />
       <module fileurl="file://$PROJECT_DIR$/fist-android/fist-android.iml" filepath="$PROJECT_DIR$/fist-android/fist-android.iml" />
       <module fileurl="file://$PROJECT_DIR$/fist-core/fist-core.iml" filepath="$PROJECT_DIR$/fist-core/fist-core.iml" />
+      <module fileurl="file://$PROJECT_DIR$/fist-kt-android/fist-kt-android.iml" filepath="$PROJECT_DIR$/fist-kt-android/fist-kt-android.iml" />
+      <module fileurl="file://$PROJECT_DIR$/reddit/reddit.iml" filepath="$PROJECT_DIR$/reddit/reddit.iml" />
     </modules>
   </component>
 </project>

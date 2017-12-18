@@ -1,1 +1,1 @@
-include ':app', ':fist-core', ':fist-android', ':hn', ':fist-reactive'
+include ':app', ':fist-core', ':fist-android', ':fist-kt-android', ':reddit'
