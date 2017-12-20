@@ -61,8 +61,8 @@ public abstract class AsyncFst<S> implements Fst<S> {
     private final ExecutorService worker;
     private final ExecutorService joiner;
     private final long timeout;
-    private boolean isRunning;
-    private S state;
+    private volatile boolean isRunning;
+    private volatile S state;
 
     protected AsyncFst(S state, Builder builder) {
         this.state = state;
@@ -83,6 +83,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
         if (isRunning) return;
         isRunning = true;
         for (Effects<S> e : effects) {
+            e.onEnter(state);
             WeakReference<Effects<S>> weakEffects = new WeakReference<>(e);
             for (Future<Mu.Action<S>> work : muBacklog) {
                 joinMoore(work, weakEffects);
@@ -91,7 +92,6 @@ public abstract class AsyncFst<S> implements Fst<S> {
                 //noinspection unchecked
                 joinMealy(work, weakEffects);
             }
-            e.onEnter(state);
         }
     }
 
@@ -110,7 +110,9 @@ public abstract class AsyncFst<S> implements Fst<S> {
     @Override
     public void exec(Effects<S> effects, Mu.Action<S> action) {
         if (!isRunning) {
-            muBacklog.add(new FutureTask<>(() -> action));
+            FutureTask<Mu.Action<S>> task = new FutureTask<>(() -> action);
+            task.run();
+            muBacklog.add(task);
             return;
         }
         runOnMainThread(() -> action.apply(state).run(new Mu.Machine<S>() {
@@ -151,7 +153,9 @@ public abstract class AsyncFst<S> implements Fst<S> {
     @Override
     public <E extends Effects<S>> void exec(E effects, Mi.Action<S, E> action) {
         if (!isRunning) {
-            miBacklog.add(new FutureTask<>(() -> action));
+            FutureTask<Mi.Action<S, E>> task = new FutureTask<>(() -> action);
+            task.run();
+            miBacklog.add(task);
             return;
         }
         runOnMainThread(() -> action.apply(state, effects).run(new Mi.Machine<S, E>() {
@@ -204,7 +208,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
                 Mu.Action<S> action = timeout > 0 ?
                         work.get(timeout, TimeUnit.MILLISECONDS) :
                         work.get();
-                miBacklog.remove(work);
+                muBacklog.remove(work);
                 Effects<S> effects = weakEffects.get();
                 if (effects != null) {
                     exec(effects, action);
@@ -213,11 +217,11 @@ public abstract class AsyncFst<S> implements Fst<S> {
             catch (InterruptedException ignored) {
             }
             catch (ExecutionException e) {
-                miBacklog.remove(work);
+                muBacklog.remove(work);
                 handle(e.getCause(), weakEffects);
             }
             catch (TimeoutException e) {
-                miBacklog.remove(work);
+                muBacklog.remove(work);
                 work.cancel(true);
                 handle(e, weakEffects);
             }
