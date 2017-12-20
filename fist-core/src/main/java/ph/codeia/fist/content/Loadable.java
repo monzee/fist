@@ -6,7 +6,7 @@ package ph.codeia.fist.content;
 
 import ph.codeia.fist.Effects;
 import ph.codeia.fist.Fst;
-import ph.codeia.fist.moore.Mu;
+import ph.codeia.fist.Mu;
 
 @SuppressWarnings("NewApi")
 public class Loadable<T> {

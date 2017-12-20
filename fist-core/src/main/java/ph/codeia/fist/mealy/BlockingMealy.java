@@ -8,6 +8,7 @@ import java.util.concurrent.Callable;
 
 import ph.codeia.fist.Effects;
 import ph.codeia.fist.Fn;
+import ph.codeia.fist.Mi;
 
 public class BlockingMealy<S, E extends Effects<S>> implements Mi.Runner<S, E> {
 

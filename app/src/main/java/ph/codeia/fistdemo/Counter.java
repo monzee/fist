@@ -16,7 +16,7 @@ import android.widget.TextView;
 import ph.codeia.fist.AndroidTroupe;
 import ph.codeia.fist.BlockingFst;
 import ph.codeia.fist.Fst;
-import ph.codeia.fist.moore.Mu;
+import ph.codeia.fist.Mu;
 
 public class Counter extends Fragment {
     private Fst.Actor<Integer, ?> ui;

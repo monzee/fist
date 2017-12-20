@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import ph.codeia.fist.Effects;
 import ph.codeia.fist.Fn;
+import ph.codeia.fist.Mi;
 
 public abstract class AsyncMealy<S, E extends Effects<S>> implements Mi.Runner<S, E> {
     private S state;

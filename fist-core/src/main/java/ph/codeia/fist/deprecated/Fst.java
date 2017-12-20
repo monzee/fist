@@ -8,7 +8,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
 import ph.codeia.fist.Deferred;
-import ph.codeia.fist.moore.Mu;
+import ph.codeia.fist.Mu;
 
 /**
  * FST - Finite State Transducer.

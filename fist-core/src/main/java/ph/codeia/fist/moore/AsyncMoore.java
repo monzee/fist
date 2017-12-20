@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import ph.codeia.fist.Effects;
 import ph.codeia.fist.Fn;
+import ph.codeia.fist.Mu;
 
 public abstract class AsyncMoore<S> implements Mu.Runner<S> {
 

@@ -1,13 +1,10 @@
-package ph.codeia.fist.mealy;
+package ph.codeia.fist;
 
 /*
  * This file is a part of the fist project.
  */
 
 import java.util.concurrent.Callable;
-
-import ph.codeia.fist.Effects;
-import ph.codeia.fist.Fn;
 
 @SuppressWarnings("NewApi")
 public final class Mi<S, E> {
@@ -145,12 +142,16 @@ public final class Mi<S, E> {
             return (s, e) -> apply(s, e).then(pure(state));
         }
 
-        default Mi<S, E> after(Mi<S, E> command) {
-            return command.then(this);
+        default Action<S, E> after(S state) {
+            return Action.<S, E> pure(state).then(this);
         }
 
         default Action<S, E> after(Action<S, E> action) {
             return action.then(this);
+        }
+
+        default Mi<S, E> after(Mi<S, E> command) {
+            return command.then(this);
         }
 
         default Callable<Action<S, E>> after(Callable<Action<S, E>> thunk) {
@@ -167,6 +168,7 @@ public final class Mi<S, E> {
         void raise(Throwable e);
     }
 
+    @Deprecated
     public interface Runner<S, E extends Effects<S>> {
         void start(E effects);
         void stop();

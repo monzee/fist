@@ -8,9 +8,6 @@ import android.arch.lifecycle.GenericLifecycleObserver;
 import android.arch.lifecycle.Lifecycle;
 import android.arch.lifecycle.LifecycleOwner;
 
-import ph.codeia.fist.mealy.Mi;
-import ph.codeia.fist.moore.Mu;
-
 public class AndroidTroupe {
 
     public static AndroidTroupe of(LifecycleOwner owner) {

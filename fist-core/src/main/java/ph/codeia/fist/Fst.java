@@ -4,9 +4,6 @@ package ph.codeia.fist;
  * This file is a part of the fist project.
  */
 
-import ph.codeia.fist.mealy.Mi;
-import ph.codeia.fist.moore.Mu;
-
 @SuppressWarnings("NewApi")
 public interface Fst<S> {
 
@@ -41,7 +38,7 @@ public interface Fst<S> {
         <S> Fst<S> build(S state);
     }
 
-    void start(Effects<S>... effects);
+    void start(Effects<S> effects);
     void stop();
     void exec(Effects<S> effects, Mu.Action<S> action);
     <E extends Effects<S>> void exec(E effects, Mi.Action<S, E> action);

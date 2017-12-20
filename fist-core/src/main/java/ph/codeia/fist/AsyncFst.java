@@ -17,9 +17,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
-import ph.codeia.fist.mealy.Mi;
-import ph.codeia.fist.moore.Mu;
-
 public abstract class AsyncFst<S> implements Fst<S> {
 
     public static class Builder implements Fst.Builder {
@@ -77,21 +74,18 @@ public abstract class AsyncFst<S> implements Fst<S> {
 
     protected abstract void runOnMainThread(Runnable proc);
 
-    @SafeVarargs
     @Override
-    public final void start(Effects<S>... effects) {
+    public final void start(Effects<S> effects) {
         if (isRunning) return;
         isRunning = true;
-        for (Effects<S> e : effects) {
-            e.onEnter(state);
-            WeakReference<Effects<S>> weakEffects = new WeakReference<>(e);
-            for (Future<Mu.Action<S>> work : muBacklog) {
-                joinMoore(work, weakEffects);
-            }
-            for (Future work : miBacklog) {
-                //noinspection unchecked
-                joinMealy(work, weakEffects);
-            }
+        effects.onEnter(state);
+        WeakReference<Effects<S>> weakEffects = new WeakReference<>(effects);
+        for (Future<Mu.Action<S>> work : muBacklog) {
+            joinMoore(work, weakEffects);
+        }
+        for (Future work : miBacklog) {
+            //noinspection unchecked
+            joinMealy(work, weakEffects);
         }
     }
 

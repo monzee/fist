@@ -4,7 +4,7 @@ package ph.codeia.fist.content;
  * This file is a part of the fist project.
  */
 
-import ph.codeia.fist.mealy.Mi;
+import ph.codeia.fist.Mi;
 
 @SuppressWarnings("NewApi")
 public interface Loader<T> {

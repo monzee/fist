@@ -17,7 +17,7 @@ import java.util.Random;
 import ph.codeia.fist.AndroidMealy;
 import ph.codeia.fist.Effects;
 import ph.codeia.fist.R;
-import ph.codeia.fist.mealy.Mi;
+import ph.codeia.fist.Mi;
 
 @SuppressLint({"DefaultLocale", "SetTextI18n"})
 public class MiVisitorGuessTheNumber extends AppCompatActivity implements Ui {

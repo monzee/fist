@@ -18,7 +18,7 @@ import ph.codeia.fist.AndroidTroupe;
 import ph.codeia.fist.AndroidFst;
 import ph.codeia.fist.Fst;
 import ph.codeia.fist.R;
-import ph.codeia.fist.moore.Mu;
+import ph.codeia.fist.Mu;
 
 public class GuessTheNumber extends AppCompatActivity {
 

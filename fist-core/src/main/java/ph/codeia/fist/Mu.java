@@ -1,14 +1,10 @@
-package ph.codeia.fist.moore;
+package ph.codeia.fist;
 
 /*
  * This file is a part of the fist project.
  */
 
 import java.util.concurrent.Callable;
-
-import ph.codeia.fist.Effects;
-import ph.codeia.fist.Fn;
-import ph.codeia.fist.mealy.Mi;
 
 /**
  * Strict Moore finite state transducer.
@@ -119,6 +115,10 @@ public final class Mu<S> {
             return s -> Mu.async(thunk);
         }
 
+        static <S> Action<S> pure(Fn.Func<S, S> f) {
+            return s -> Mu.enter(f.apply(s));
+        }
+
         default Action<S> then(S state) {
             return s -> apply(s).then(pure(state));
         }
@@ -135,12 +135,24 @@ public final class Mu<S> {
             return s -> apply(s).then(thunk);
         }
 
+        default Action<S> after(S state) {
+            return pure(state).then(this);
+        }
+
+        default Action<S> after(Action<S> action) {
+            return action.then(this);
+        }
+
         default Mu<S> after(Mu<S> command) {
             return command.then(this);
         }
 
+        default Callable<Action<S>> after(Callable<Action<S>> thunk) {
+            return () -> thunk.call().then(this);
+        }
+
         default <E extends Effects<S>> Mi.Action<S, E> toMealy() {
-            return new MealyBridge<>(this);
+            return new MooreToMealy<>(this);
         }
     }
 
@@ -153,6 +165,7 @@ public final class Mu<S> {
         void raise(Throwable e);
     }
 
+    @Deprecated
     public interface Runner<S> {
         void start(Effects<S> effects);
         void stop();

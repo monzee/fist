@@ -6,9 +6,6 @@ package ph.codeia.fist;
 
 import java.util.concurrent.Callable;
 
-import ph.codeia.fist.mealy.Mi;
-import ph.codeia.fist.moore.Mu;
-
 public class BlockingFst<S> implements Fst<S> {
     private S state;
     private boolean isRunning;
@@ -17,14 +14,11 @@ public class BlockingFst<S> implements Fst<S> {
         this.state = state;
     }
 
-    @SafeVarargs
     @Override
-    public final void start(Effects<S>... effects) {
+    public final void start(Effects<S> effects) {
         if (isRunning) return;
         isRunning = true;
-        for (Effects<S> e : effects) {
-            e.onEnter(state);
-        }
+        effects.onEnter(state);
     }
 
     @Override

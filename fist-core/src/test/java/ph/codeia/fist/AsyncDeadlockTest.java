@@ -12,12 +12,9 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import ph.codeia.fist.mealy.Mi;
-import ph.codeia.fist.moore.Mu;
-
 import static org.junit.Assert.*;
 
-public class NoDeadlockTest {
+public class AsyncDeadlockTest {
     static final ExecutorService MAIN = Executors.newSingleThreadExecutor();
 
     static <T> Effects<T> NOOP() {
@@ -80,7 +77,7 @@ public class NoDeadlockTest {
     }
 
     @Test(timeout=1000)
-    public void delayed_start() throws BrokenBarrierException, InterruptedException {
+    public void late_start() throws BrokenBarrierException, InterruptedException {
         CyclicBarrier barrier = new CyclicBarrier(2);
         Fst.Actor<Integer, ?> fst = new UnconfinedFst<>(0).bind(hit(barrier));
         fst.exec(n -> Mu.enter(n + 1));
@@ -91,7 +88,7 @@ public class NoDeadlockTest {
     }
 
     @Test(timeout=1000)
-    public void async_delayed_start() throws BrokenBarrierException, InterruptedException {
+    public void async_late_start() throws BrokenBarrierException, InterruptedException {
         CyclicBarrier barrier = new CyclicBarrier(2);
         Fst.Actor<Integer, ?> fst = new UnconfinedFst<>(0).bind(hit(barrier));
         fst.exec(n -> Mu.async(() -> Mu.Action.pure(n + 1)));

@@ -1,4 +1,4 @@
-package ph.codeia.fist.moore;
+package ph.codeia.fist;
 
 /*
  * This file is a part of the fist project.
@@ -6,14 +6,11 @@ package ph.codeia.fist.moore;
 
 import java.util.concurrent.Callable;
 
-import ph.codeia.fist.Effects;
-import ph.codeia.fist.mealy.Mi;
-
-public class MealyBridge<S, E extends Effects<S>> implements Mi.Action<S, E> {
+public class MooreToMealy<S, E extends Effects<S>> implements Mi.Action<S, E> {
 
     private final Mu.Action<S> source;
 
-    public MealyBridge(Mu.Action<S> source) {
+    public MooreToMealy(Mu.Action<S> source) {
         this.source = source;
     }
 
@@ -43,12 +40,12 @@ public class MealyBridge<S, E extends Effects<S>> implements Mi.Action<S, E> {
 
             @Override
             public void forward(Mu.Action<S> action) {
-                command = Mi.forward(new MealyBridge<>(action));
+                command = Mi.forward(new MooreToMealy<>(action));
             }
 
             @Override
             public void async(Callable<Mu.Action<S>> thunk) {
-                command = Mi.async(() -> new MealyBridge<>(thunk.call()));
+                command = Mi.async(() -> new MooreToMealy<>(thunk.call()));
             }
 
             @Override

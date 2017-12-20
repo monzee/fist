@@ -6,14 +6,12 @@ import java.util.concurrent.BrokenBarrierException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 
-import ph.codeia.fist.mealy.Mi;
-import ph.codeia.fist.moore.Mu;
-
 import static org.junit.Assert.*;
 
 /*
  * This file is a part of the fist project.
  */
+
 public class AsyncFstTest {
 
     static class Foo implements Effects<Integer> {
@@ -120,7 +118,7 @@ public class AsyncFstTest {
         sm.stop();
         barrier.await();
         assertNull(foo.lastFoo);
-        sm.start(new Bar(), foo);
+        sm.start(foo);
         done.await();
         assertEquals("z", foo.lastFoo);
     }

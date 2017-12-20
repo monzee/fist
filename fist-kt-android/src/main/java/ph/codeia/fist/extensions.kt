@@ -1,7 +1,5 @@
 package ph.codeia.fist
 
-import ph.codeia.fist.mealy.Mi
-import ph.codeia.fist.moore.Mu
 import kotlin.LazyThreadSafetyMode.NONE
 
 

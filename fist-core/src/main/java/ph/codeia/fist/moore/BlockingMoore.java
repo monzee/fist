@@ -8,6 +8,7 @@ import java.util.concurrent.Callable;
 
 import ph.codeia.fist.Effects;
 import ph.codeia.fist.Fn;
+import ph.codeia.fist.Mu;
 
 public class BlockingMoore<S> implements Mu.Runner<S> {
 

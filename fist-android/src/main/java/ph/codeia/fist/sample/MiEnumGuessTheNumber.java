@@ -22,7 +22,7 @@ import ph.codeia.fist.AndroidFst;
 import ph.codeia.fist.Effects;
 import ph.codeia.fist.Fst;
 import ph.codeia.fist.R;
-import ph.codeia.fist.mealy.Mi;
+import ph.codeia.fist.Mi;
 
 @SuppressLint({"DefaultLocale", "SetTextI18N"})
 public class MiEnumGuessTheNumber extends Fragment implements Play.Ui {
