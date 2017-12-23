@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
-import ph.codeia.fist.Deferred;
+import ph.codeia.fist.ReusableFuture;
 
 public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.Action<S, O, A>>
         implements Fst.Machine<S, O, A>
@@ -217,7 +217,7 @@ public abstract class AsyncMachine<S, O extends Fst.ErrorHandler, A extends Fst.
                 }
 
                 class Channel implements Fst.Channel<S>, Runnable {
-                    final Deferred<S> barrier = new Deferred<>();
+                    final ReusableFuture<S> barrier = new ReusableFuture<>();
                     final A receiver;
                     final Fst.Case<S, A> selector;
                     Fst.Fold<S> fold;

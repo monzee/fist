@@ -7,7 +7,7 @@ package ph.codeia.fist.deprecated;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
-import ph.codeia.fist.Deferred;
+import ph.codeia.fist.ReusableFuture;
 import ph.codeia.fist.Mu;
 
 /**
@@ -106,7 +106,7 @@ public final class Fst<S, A extends Fst.Action<? super S, ?, ? extends A>> {
     }
 
     public interface Producer<T> {
-        void accept(Deferred<T> result);
+        void accept(ReusableFuture<T> result);
     }
 
     public interface Fold<T> {
@@ -265,13 +265,13 @@ public final class Fst<S, A extends Fst.Action<? super S, ?, ? extends A>> {
     }
 
     public static <S, A extends Action<S, ?, A>> Fst<S, A> async(Producer<A> producer) {
-        Deferred<A> result = new Deferred<>();
+        ReusableFuture<A> result = new ReusableFuture<>();
         producer.accept(result);
         return async(result::get);
     }
 
     public static <S, A extends Action<S, ?, A>> Fst<S, A> async(S intermediate, Producer<A> producer) {
-        Deferred<A> result = new Deferred<>();
+        ReusableFuture<A> result = new ReusableFuture<>();
         producer.accept(result);
         return async(intermediate, result::get);
     }

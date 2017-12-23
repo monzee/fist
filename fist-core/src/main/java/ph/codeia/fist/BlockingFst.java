@@ -6,30 +6,40 @@ package ph.codeia.fist;
 
 import java.util.concurrent.Callable;
 
+/**
+ * A synchronous state machine.
+ * <p>
+ * This is the simplest possible implementation of {@link Fst} where all async
+ * actions are executed and awaited in the same thread as the caller. This is
+ * also always-on, so an action is guaranteed to run immediately as soon as
+ * {@code exec} is called. Actions cannot be deferred by stopping and starting
+ * as this class does not maintain any sort of queue.
+ *
+ * @param <S> The state type
+ */
 public class BlockingFst<S> implements Fst<S> {
-    private S state;
-    private boolean isRunning;
 
+    private S state;
+
+    /**
+     * @param state The initial state
+     */
     public BlockingFst(S state) {
         this.state = state;
     }
 
     @Override
     public final void start(Effects<S> effects) {
-        if (isRunning) return;
-        isRunning = true;
         effects.onEnter(state);
     }
 
     @Override
     public void stop() {
-        isRunning = false;
     }
 
     @Override
     public void exec(Effects<S> effects, Mu.Action<S> action) {
-        if (!isRunning) return;
-        action.apply(state).run(new Mu.Machine<S>() {
+        action.apply(state).run(new Mu.OnCommand<S>() {
             @Override
             public void noop() {
             }
@@ -69,8 +79,7 @@ public class BlockingFst<S> implements Fst<S> {
 
     @Override
     public <E extends Effects<S>> void exec(E effects, Mi.Action<S, E> action) {
-        if (!isRunning) return;
-        action.apply(state, effects).run(new Mi.Machine<S, E>() {
+        action.apply(state, effects).run(new Mi.OnCommand<S, E>() {
             @Override
             public void noop() {
             }

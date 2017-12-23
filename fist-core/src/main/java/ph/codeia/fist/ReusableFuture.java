@@ -10,28 +10,28 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-public class Deferred<T> implements Future<T> {
-    private enum Status { WAITING, READY, FAILED, CANCELLED }
+public class ReusableFuture<T> implements Future<T> {
+    private enum State {WAITING, READY, FAILED, CANCELLED}
 
     private final Object lock = new Object();
     private T value;
     private Throwable error;
-    private Status status = Status.WAITING;
+    private State state = State.WAITING;
 
     public void ok(T t) {
-        if (status != Status.WAITING) return;
+        if (state != State.WAITING) return;
         synchronized (lock) {
             value = t;
-            status = Status.READY;
+            state = State.READY;
             lock.notifyAll();
         }
     }
 
     public void err(Throwable e) {
-        if (status != Status.WAITING) return;
+        if (state != State.WAITING) return;
         synchronized (lock) {
             error = e;
-            status = Status.FAILED;
+            state = State.FAILED;
             lock.notifyAll();
         }
     }
@@ -46,15 +46,13 @@ public class Deferred<T> implements Future<T> {
     }
 
     public T take(long timeout, TimeUnit unit)
-            throws InterruptedException, ExecutionException,
-            TimeoutException
-    {
+    throws InterruptedException, ExecutionException, TimeoutException {
         synchronized (lock) {
             try {
                 return get(timeout, unit);
             }
             finally {
-                status = Status.WAITING;
+                state = State.WAITING;
                 value = null;
                 error = null;
             }
@@ -63,9 +61,9 @@ public class Deferred<T> implements Future<T> {
 
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
-        if (status != Status.WAITING) return false;
+        if (state != State.WAITING) return false;
         synchronized (lock) {
-            status = Status.CANCELLED;
+            state = State.CANCELLED;
             lock.notifyAll();
             return true;
         }
@@ -73,12 +71,12 @@ public class Deferred<T> implements Future<T> {
 
     @Override
     public boolean isCancelled() {
-        return status == Status.CANCELLED;
+        return state == State.CANCELLED;
     }
 
     @Override
     public boolean isDone() {
-        return status != Status.WAITING;
+        return state != State.WAITING;
     }
 
     @Override
@@ -93,16 +91,17 @@ public class Deferred<T> implements Future<T> {
 
     @Override
     public T get(long timeout, TimeUnit unit)
-            throws InterruptedException, ExecutionException,
-            TimeoutException
-    {
+    throws InterruptedException, ExecutionException, TimeoutException {
         boolean timed = timeout > 0;
         long remaining = unit.toNanos(timeout);
         while (true) synchronized (lock) {
-            switch (status) {
-                case READY: return value;
-                case CANCELLED: throw new CancellationException();
-                case FAILED: throw new ExecutionException(error);
+            switch (state) {
+                case READY:
+                    return value;
+                case CANCELLED:
+                    throw new CancellationException();
+                case FAILED:
+                    throw new ExecutionException(error);
                 case WAITING:
                     if (timed && remaining <= 0) {
                         throw new TimeoutException();

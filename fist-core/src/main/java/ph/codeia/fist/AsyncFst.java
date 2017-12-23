@@ -17,8 +17,22 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Asynchronous state machine base implementation.
+ *
+ * @param <S> The state type
+ */
 public abstract class AsyncFst<S> implements Fst<S> {
 
+    /**
+     * Builder object to customize an {@link AsyncFst} instance.
+     * <p>
+     * By default, async actions are executed in a single thread and
+     * awaited/joined in a (separate) single thread. The latter is probably
+     * what you want, but you might want to set the worker executor to a
+     * cached thread pool executor with more than 1 thread e.g. if you need to
+     * run actions in parallel.
+     */
     public static class Builder implements Fst.Builder {
         private static final ExecutorService DEFAULT_WORKER = Executors.newSingleThreadExecutor();
         private static final ExecutorService DEFAULT_JOINER = Executors.newSingleThreadExecutor();
@@ -27,20 +41,40 @@ public abstract class AsyncFst<S> implements Fst<S> {
         private ExecutorService joiner = DEFAULT_JOINER;
         private long timeoutMillis = 60_000;
 
+        /**
+         * Sets the maximum time to wait for async actions to complete.
+         *
+         * @param millis The timeout in milliseconds
+         * @return this
+         */
         public Builder timeout(long millis) {
             timeoutMillis = millis;
             return this;
         }
 
+        /**
+         * @see #timeout(long)
+         * @param duration The timeout duration in whatever unit
+         * @param unit The time unit
+         * @return this
+         */
         public Builder timeout(long duration, TimeUnit unit) {
             return timeout(unit.toMillis(duration));
         }
 
+        /**
+         * @param worker The executor service to submit async actions to
+         * @return this
+         */
         public Builder workOn(ExecutorService worker) {
             this.worker = worker;
             return this;
         }
 
+        /**
+         * @param joiner The executor service to submit await actions to
+         * @return this
+         */
         public Builder joinOn(ExecutorService joiner) {
             this.joiner = joiner;
             return this;
@@ -61,6 +95,10 @@ public abstract class AsyncFst<S> implements Fst<S> {
     private volatile boolean isRunning;
     private volatile S state;
 
+    /**
+     * @param state The initial state
+     * @param builder The object containing the executors and configuration.
+     */
     protected AsyncFst(S state, Builder builder) {
         this.state = state;
         worker = builder.worker;
@@ -68,17 +106,25 @@ public abstract class AsyncFst<S> implements Fst<S> {
         timeout = builder.timeoutMillis;
     }
 
+    /**
+     * @param state The initial state
+     */
     protected AsyncFst(S state) {
         this(state, new Builder());
     }
 
+    /**
+     * Runs a procedure in the platform's main or UI thread.
+     *
+     * @param proc The procedure to run in the main thread
+     */
     protected abstract void runOnMainThread(Runnable proc);
 
     @Override
     public final void start(Effects<S> effects) {
         if (isRunning) return;
         isRunning = true;
-        effects.onEnter(state);
+        effects.onEnter(state);  // TODO: force main thread?
         WeakReference<Effects<S>> weakEffects = new WeakReference<>(effects);
         for (Future<Mu.Action<S>> work : muBacklog) {
             joinMoore(work, weakEffects);
@@ -109,7 +155,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
             muBacklog.add(task);
             return;
         }
-        runOnMainThread(() -> action.apply(state).run(new Mu.Machine<S>() {
+        runOnMainThread(() -> action.apply(state).run(new Mu.OnCommand<S>() {
             @Override
             public void noop() {
             }
@@ -152,7 +198,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
             miBacklog.add(task);
             return;
         }
-        runOnMainThread(() -> action.apply(state, effects).run(new Mi.Machine<S, E>() {
+        runOnMainThread(() -> action.apply(state, effects).run(new Mi.OnCommand<S, E>() {
             @Override
             public void noop() {
             }
@@ -197,6 +243,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
             WeakReference<Effects<S>> weakEffects
     ) {
         AtomicReference<Future<?>> joinRef = new AtomicReference<>();
+        pending.add(joinRef);
         joinRef.set(joiner.submit(() -> {
             try {
                 Mu.Action<S> action = timeout > 0 ?
@@ -224,7 +271,6 @@ public abstract class AsyncFst<S> implements Fst<S> {
                 joinRef.set(null);
             }
         }));
-        pending.add(joinRef);
     }
 
     private <E extends Effects<S>> void joinMealy(
@@ -232,6 +278,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
             WeakReference<E> weakEffects
     ) {
         AtomicReference<Future<?>> joinRef = new AtomicReference<>();
+        pending.add(joinRef);
         joinRef.set(joiner.submit(() -> {
             try {
                 Mi.Action<S, E> action = timeout > 0 ?
@@ -271,7 +318,6 @@ public abstract class AsyncFst<S> implements Fst<S> {
                 joinRef.set(null);
             }
         }));
-        pending.add(joinRef);
     }
 
     private void handle(Throwable e, WeakReference<? extends Effects<S>> weakEffects) {

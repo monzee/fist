@@ -34,7 +34,7 @@ public class BlockingMoore<S> implements Mu.Runner<S> {
     @Override
     public void exec(Effects<S> effects, Mu.Action<S> action) {
         if (!isRunning) return;
-        action.apply(state).run(new Mu.Machine<S>() {
+        action.apply(state).run(new Mu.OnCommand<S>() {
             @Override
             public void noop() {
             }

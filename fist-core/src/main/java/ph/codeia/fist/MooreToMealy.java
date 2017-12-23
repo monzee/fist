@@ -6,17 +6,26 @@ package ph.codeia.fist;
 
 import java.util.concurrent.Callable;
 
+/**
+ * Converts a {@link Mu.Action} to a {@link Mi.Action}.
+ *
+ * @param <S> The state type
+ * @param <E> The receiver type
+ */
 public class MooreToMealy<S, E extends Effects<S>> implements Mi.Action<S, E> {
 
     private final Mu.Action<S> source;
 
+    /**
+     * @param source The Moore action to convert
+     */
     public MooreToMealy(Mu.Action<S> source) {
         this.source = source;
     }
 
     @Override
     public Mi<S, E> apply(S state, E ignored) {
-        return new Mu.Machine<S>() {
+        return new Mu.OnCommand<S>() {
             Mi<S, E> command;
 
             {

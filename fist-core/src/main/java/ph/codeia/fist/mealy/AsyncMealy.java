@@ -60,7 +60,7 @@ public abstract class AsyncMealy<S, E extends Effects<S>> implements Mi.Runner<S
     @Override
     public void exec(E effects, Mi.Action<S, E> action) {
         if (!isRunning) return;
-        runOnMainThread(() -> action.apply(state, effects).run(new Mi.Machine<S, E>() {
+        runOnMainThread(() -> action.apply(state, effects).run(new Mi.OnCommand<S, E>() {
             @Override
             public void noop() {
             }

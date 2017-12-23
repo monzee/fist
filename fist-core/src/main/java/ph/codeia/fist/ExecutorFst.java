@@ -6,11 +6,23 @@ package ph.codeia.fist;
 
 import java.util.concurrent.Executor;
 
+/**
+ * An {@link AsyncFst} implementation that can be adapted to various platforms
+ * by passing a function that executes a runnable in the platform's main thread.
+ *
+ * @param <S> The state type
+ */
 public class ExecutorFst<S> extends AsyncFst<S> {
 
+    /**
+     * An {@link AsyncFst.Builder} that takes a main thread executor.
+     */
     public static class Builder extends AsyncFst.Builder {
         private final Executor main;
 
+        /**
+         * @param main The main thread executor
+         */
         public Builder(Executor main) {
             this.main = main;
         }
@@ -28,6 +40,10 @@ public class ExecutorFst<S> extends AsyncFst<S> {
         main = builder.main;
     }
 
+    /**
+     * @param state The initial state
+     * @param main The main thread executor
+     */
     public ExecutorFst(S state, Executor main) {
         this(state, new Builder(main));
     }
