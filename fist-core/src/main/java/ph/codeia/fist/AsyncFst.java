@@ -53,16 +53,20 @@ public abstract class AsyncFst<S> implements Fst<S> {
         }
 
         /**
-         * @see #timeout(long)
+         * Sets the maximum time to wait for async actions to complete.
+         *
          * @param duration The timeout duration in whatever unit
          * @param unit The time unit
          * @return this
+         * @see #timeout(long)
          */
         public Builder timeout(long duration, TimeUnit unit) {
             return timeout(unit.toMillis(duration));
         }
 
         /**
+         * Sets the executor service for async actions.
+         *
          * @param worker The executor service to submit async actions to
          * @return this
          */
@@ -72,6 +76,8 @@ public abstract class AsyncFst<S> implements Fst<S> {
         }
 
         /**
+         * Sets the executor service for awaiting the result of async actions.
+         *
          * @param joiner The executor service to submit await actions to
          * @return this
          */

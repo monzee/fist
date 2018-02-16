@@ -22,6 +22,8 @@ import java.util.concurrent.Callable;
 public final class Mu<S> {
 
     /**
+     * Creates a command that produces no output or state changes.
+     *
      * @param <S> The state type
      * @return a command object
      * @see OnCommand#noop()
@@ -31,6 +33,9 @@ public final class Mu<S> {
     }
 
     /**
+     * Creates a command that re-emits the current state. Mostly used with
+     * mutable state types.
+     *
      * @param <S> The state type
      * @return a command object
      * @see OnCommand#reenter()
@@ -40,6 +45,8 @@ public final class Mu<S> {
     }
 
     /**
+     * Creates a command that emits a new state.
+     *
      * @param newState The new state
      * @param <S> The state type
      * @return a command object
@@ -50,6 +57,8 @@ public final class Mu<S> {
     }
 
     /**
+     * Creates a command that runs an action that emits another command.
+     *
      * @param action The action to execute
      * @param <S> The state type
      * @return a command object
@@ -60,6 +69,8 @@ public final class Mu<S> {
     }
 
     /**
+     * Creates a command that runs an action in the background.
+     *
      * @param thunk The async action to execute
      * @param <S> The state type
      * @return a command object
@@ -70,6 +81,9 @@ public final class Mu<S> {
     }
 
     /**
+     * Creates a command that indicates that an error has occurred during
+     * a transition.
+     *
      * @param e The error
      * @param <S> The state type
      * @return a command object

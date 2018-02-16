@@ -13,6 +13,7 @@ dependencies {
 javadoc {
     title = 'Fist Core'
     options.links 'https://developer.android.com/reference'
+    options.encoding 'UTF-8'
 }
 
 task jarSources(type: Jar, dependsOn: 'classes', group: 'publishing') {

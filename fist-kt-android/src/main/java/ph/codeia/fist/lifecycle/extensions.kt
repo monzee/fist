@@ -2,7 +2,7 @@ package ph.codeia.fist.lifecycle
 
 import android.arch.lifecycle.LifecycleOwner
 import ph.codeia.fist.AndroidFst
-import ph.codeia.fist.AndroidTroupe
+import ph.codeia.fist.LifecycleBinder
 import ph.codeia.fist.Effects
 import ph.codeia.fist.Fst
 
@@ -19,4 +19,9 @@ fun <S, E : Effects<S>> LifecycleOwner.bind(
 fun <S, E : Effects<S>> LifecycleOwner.bind(
         fst: Fst<S>,
         effects: E
-) = AndroidTroupe.of(this).bind(fst, effects)
+) = LifecycleBinder.of(this).bind(fst, effects)
+
+inline fun <S> LifecycleOwner.bind(
+        fst: Fst<S>,
+        crossinline block: (S) -> Unit
+) = LifecycleBinder.of(this).bind(fst, Effects<S> { block(it) })

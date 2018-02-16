@@ -48,7 +48,7 @@ public class AsyncDeadlockTest {
 
     @Test
     public void bind_machine_to_effects() {
-        Fst.Actor<Integer, ?> fst = new UnconfinedFst<>(0).bind(NOOP());
+        Fst.Binding<Integer, ?> fst = new UnconfinedFst<>(0).bind(NOOP());
         fst.start();
         fst.exec(n -> Mu.enter(n + 100));
         fst.inspect(n -> assertEquals(100, n.intValue()));
@@ -57,7 +57,7 @@ public class AsyncDeadlockTest {
     @Test(timeout=1000)
     public void async_mealy_action() throws BrokenBarrierException, InterruptedException {
         CyclicBarrier barrier = new CyclicBarrier(2);
-        Fst.Actor<Integer, Effects<Integer>> fst = new UnconfinedFst<>(0).bind(hit(barrier));
+        Fst.Binding<Integer, Effects<Integer>> fst = new UnconfinedFst<>(0).bind(hit(barrier));
         MAIN.execute(fst::start);
         barrier.await();
         fst.exec((n, _e) -> Mi.async(() -> Mi.Action.pure(n + 1)));
@@ -68,7 +68,7 @@ public class AsyncDeadlockTest {
     @Test(timeout=1000)
     public void async_moore_action() throws BrokenBarrierException, InterruptedException {
         CyclicBarrier barrier = new CyclicBarrier(2);
-        Fst.Actor<Integer, ?> fst = new UnconfinedFst<>(0).bind(hit(barrier));
+        Fst.Binding<Integer, ?> fst = new UnconfinedFst<>(0).bind(hit(barrier));
         MAIN.execute(fst::start);
         barrier.await();
         fst.exec(n -> Mu.async(() -> Mu.Action.pure(n + 1)));
@@ -79,7 +79,7 @@ public class AsyncDeadlockTest {
     @Test(timeout=1000)
     public void late_start() throws BrokenBarrierException, InterruptedException {
         CyclicBarrier barrier = new CyclicBarrier(2);
-        Fst.Actor<Integer, ?> fst = new UnconfinedFst<>(0).bind(hit(barrier));
+        Fst.Binding<Integer, ?> fst = new UnconfinedFst<>(0).bind(hit(barrier));
         fst.exec(n -> Mu.enter(n + 1));
         MAIN.execute(fst::start);
         barrier.await();
@@ -90,7 +90,7 @@ public class AsyncDeadlockTest {
     @Test(timeout=1000)
     public void async_late_start() throws BrokenBarrierException, InterruptedException {
         CyclicBarrier barrier = new CyclicBarrier(2);
-        Fst.Actor<Integer, ?> fst = new UnconfinedFst<>(0).bind(hit(barrier));
+        Fst.Binding<Integer, ?> fst = new UnconfinedFst<>(0).bind(hit(barrier));
         fst.exec(n -> Mu.async(() -> Mu.Action.pure(n + 1)));
         MAIN.execute(fst::start);
         barrier.await();

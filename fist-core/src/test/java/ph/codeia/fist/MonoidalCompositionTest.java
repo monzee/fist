@@ -37,7 +37,7 @@ public class MonoidalCompositionTest {
 
     @Test
     public void action_then_action() {
-        Fst.Actor<Integer, Noop> fst = new BlockingFst<>(0).bind(NOOP);
+        Fst.Binding<Integer, Noop> fst = new BlockingFst<>(0).bind(NOOP);
         fst.start();
         fst.exec(plus(1).then(plus(10)));
         fst.inspect(n -> assertEquals(11, n.intValue()));
@@ -48,7 +48,7 @@ public class MonoidalCompositionTest {
 
     @Test
     public void cmd_then_action() {
-        Fst.Actor<Integer, Noop> fst = new BlockingFst<>(0).bind(NOOP);
+        Fst.Binding<Integer, Noop> fst = new BlockingFst<>(0).bind(NOOP);
         fst.start();
         fst.exec(n -> Mu.enter(1).then(plus(2)));
         fst.inspect(n -> assertEquals(3, n.intValue()));
@@ -59,7 +59,7 @@ public class MonoidalCompositionTest {
     @Test
     public void action_then_cmd() {
         Counter c = new Counter();
-        Fst.Actor<Integer, Counter> fst = new BlockingFst<>(0).bind(c);
+        Fst.Binding<Integer, Counter> fst = new BlockingFst<>(0).bind(c);
         fst.start();
         assertEquals(1, c.count);
         fst.exec(plus(1).then(Mu.forward(plus(1023))));
@@ -73,7 +73,7 @@ public class MonoidalCompositionTest {
     @Test
     public void action_then_state() {
         Counter c = new Counter();
-        Fst.Actor<Integer, Counter> fst = new BlockingFst<>(0).bind(c);
+        Fst.Binding<Integer, Counter> fst = new BlockingFst<>(0).bind(c);
         fst.start();
         fst.exec(plus(1).then(123));
         fst.inspect(n -> assertEquals(123, n.intValue()));
@@ -87,7 +87,7 @@ public class MonoidalCompositionTest {
     @Test
     public void cmd_then_cmd() {
         Counter c = new Counter();
-        Fst.Actor<Integer, Counter> fst = new BlockingFst<>(0).bind(c);
+        Fst.Binding<Integer, Counter> fst = new BlockingFst<>(0).bind(c);
         fst.start();
         fst.exec(_s -> Mu.<Integer> reenter().then(Mu.reenter()));
         assertEquals(3, c.count);
@@ -98,7 +98,7 @@ public class MonoidalCompositionTest {
     @Test
     public void cmd_then_thunk() {
         Counter c = new Counter();
-        Fst.Actor<Integer, Counter> fst = new BlockingFst<>(0).bind(c);
+        Fst.Binding<Integer, Counter> fst = new BlockingFst<>(0).bind(c);
         fst.start();
         fst.exec(_n -> Mu.<Integer> reenter().then(() -> _m -> Mu.reenter()));
         assertEquals(3, c.count);
@@ -109,7 +109,7 @@ public class MonoidalCompositionTest {
 
     @Test
     public void action_then_thunk() {
-        Fst.Actor<Integer, Noop> fst = new BlockingFst<>(0).bind(NOOP);
+        Fst.Binding<Integer, Noop> fst = new BlockingFst<>(0).bind(NOOP);
         fst.start();
         fst.exec(plus(1).then(() -> plus(10)));
         fst.inspect(n -> assertEquals(11, n.intValue()));
@@ -121,7 +121,7 @@ public class MonoidalCompositionTest {
     @Test
     public void cmd_after_action() {
         Counter c = new Counter();
-        Fst.Actor<Integer, Counter> fst = new BlockingFst<>(0).bind(c);
+        Fst.Binding<Integer, Counter> fst = new BlockingFst<>(0).bind(c);
         fst.start();
         fst.exec(_s -> Mu.<Integer> reenter().after(plus(1)));
         fst.exec((_s, _e) -> Mi.<Integer, Counter> forward(times(2)).after(times(10)));
@@ -131,7 +131,7 @@ public class MonoidalCompositionTest {
 
     @Test
     public void action_after_action() {
-        Fst.Actor<Integer, Noop> fst = new BlockingFst<>(0).bind(NOOP);
+        Fst.Binding<Integer, Noop> fst = new BlockingFst<>(0).bind(NOOP);
         fst.start();
         fst.exec(plus(3).after(plus(1)));
         fst.inspect(n -> assertEquals(4, n.intValue()));
@@ -142,7 +142,7 @@ public class MonoidalCompositionTest {
 
     @Test
     public void action_after_command() {
-        Fst.Actor<Integer, Noop> fst = new BlockingFst<>(0).bind(NOOP);
+        Fst.Binding<Integer, Noop> fst = new BlockingFst<>(0).bind(NOOP);
         fst.start();
         fst.exec(_n -> plus(4).after(Mu.enter(1)));
         fst.inspect(n -> assertEquals(5, n.intValue()));
@@ -153,7 +153,7 @@ public class MonoidalCompositionTest {
 
     @Test
     public void action_after_state() {
-        Fst.Actor<Integer, Noop> fst = new BlockingFst<>(0).bind(NOOP);
+        Fst.Binding<Integer, Noop> fst = new BlockingFst<>(0).bind(NOOP);
         fst.start();
         fst.exec(plus(3).after(5));
         fst.inspect(n -> assertEquals(8, n.intValue()));
@@ -165,7 +165,7 @@ public class MonoidalCompositionTest {
     @Test
     public void cmd_after_cmd() {
         Counter c = new Counter();
-        Fst.Actor<Integer, Counter> fst = new BlockingFst<>(0).bind(c);
+        Fst.Binding<Integer, Counter> fst = new BlockingFst<>(0).bind(c);
         fst.start();
         fst.exec(_s -> Mu.<Integer> reenter().after(Mu.reenter()));
         assertEquals(3, c.count);
@@ -176,7 +176,7 @@ public class MonoidalCompositionTest {
     @Test
     public void cmd_after_thunk() {
         Counter c = new Counter();
-        Fst.Actor<Integer, Counter> fst = new BlockingFst<>(0).bind(c);
+        Fst.Binding<Integer, Counter> fst = new BlockingFst<>(0).bind(c);
         fst.start();
         fst.exec(_n -> Mu.<Integer> reenter().after(() -> _m -> Mu.reenter()));
         assertEquals(3, c.count);
@@ -187,7 +187,7 @@ public class MonoidalCompositionTest {
 
     @Test
     public void action_after_thunk() {
-        Fst.Actor<Integer, Noop> fst = new BlockingFst<>(0).bind(NOOP);
+        Fst.Binding<Integer, Noop> fst = new BlockingFst<>(0).bind(NOOP);
         fst.start();
         fst.exec(_s -> Mu.async(plus(1).after(() -> plus(10))));
         fst.inspect(n -> assertEquals(11, n.intValue()));

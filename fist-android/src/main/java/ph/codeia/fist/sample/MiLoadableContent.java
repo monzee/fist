@@ -17,7 +17,7 @@ import android.widget.Toast;
 import java.util.Random;
 import java.util.concurrent.TimeoutException;
 
-import ph.codeia.fist.AndroidTroupe;
+import ph.codeia.fist.LifecycleBinder;
 import ph.codeia.fist.AndroidFst;
 import ph.codeia.fist.Fst;
 import ph.codeia.fist.R;
@@ -38,7 +38,7 @@ public class MiLoadableContent extends Fragment implements Loadable.Ui<String>
         }
     };
 
-    private Fst.Actor<Loadable<String>, Loadable.Ui<String>> ui;
+    private Fst.Binding<Loadable<String>, Loadable.Ui<String>> ui;
     private TextView message;
     private Button refresh;
 
@@ -46,7 +46,7 @@ public class MiLoadableContent extends Fragment implements Loadable.Ui<String>
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        ui = AndroidTroupe.of(this).bind(
+        ui = LifecycleBinder.of(this).bind(
                 Loadable.of(new AndroidFst.Builder().timeout(5_000)),
                 this
         );
@@ -69,15 +69,15 @@ public class MiLoadableContent extends Fragment implements Loadable.Ui<String>
     @Override
     public boolean shouldFetch(Event from, String current) {
         switch (from) {
-        case INIT:
-            tell("Hello, world!");
-            break;
-        case LOAD:
-            tell("loading...");
-            break;
-        case REFRESH:
-            tell("reloading...");
-            break;
+            case INIT:
+                tell("Hello, world!");
+                break;
+            case LOAD:
+                tell("loading...");
+                break;
+            case REFRESH:
+                tell("reloading...");
+                break;
         }
         return true;
     }

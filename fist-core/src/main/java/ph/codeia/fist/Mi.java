@@ -31,6 +31,8 @@ import java.util.concurrent.Callable;
 public final class Mi<S, E> {
 
     /**
+     * Creates a command that produces no output or state changes.
+     *
      * @param <S> The state type
      * @param <E> The receiver type
      * @return a command object for the state machine
@@ -41,6 +43,9 @@ public final class Mi<S, E> {
     }
 
     /**
+     * Creates a command that re-emits the current state. Mostly used with
+     * mutable state types.
+     *
      * @param <S> The state type
      * @param <E> The receiver type
      * @return a command object for the state machine
@@ -51,6 +56,8 @@ public final class Mi<S, E> {
     }
 
     /**
+     * Creates an action that emits a new state.
+     *
      * @param newState The new state
      * @param <S> The state type
      * @param <E> The receiver type
@@ -62,6 +69,8 @@ public final class Mi<S, E> {
     }
 
     /**
+     * Creates a command that runs an action that emits another command.
+     *
      * @param action The next action
      * @param <S> The state type
      * @param <E> The receiver type
@@ -73,6 +82,8 @@ public final class Mi<S, E> {
     }
 
     /**
+     * Creates a command that runs an action in the background.
+     *
      * @param thunk The background task to execute
      * @param <S> The state type
      * @param <E> The receiver type
@@ -84,6 +95,9 @@ public final class Mi<S, E> {
     }
 
     /**
+     * Creates a command that indicates that an error has occurred during
+     * a transition.
+     *
      * @param e The error
      * @param <S> The state type
      * @param <E> The receiver type

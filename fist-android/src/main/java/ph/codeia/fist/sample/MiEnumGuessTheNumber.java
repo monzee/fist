@@ -17,7 +17,7 @@ import android.widget.Toast;
 
 import java.util.Random;
 
-import ph.codeia.fist.AndroidTroupe;
+import ph.codeia.fist.LifecycleBinder;
 import ph.codeia.fist.AndroidFst;
 import ph.codeia.fist.Effects;
 import ph.codeia.fist.Fst;
@@ -26,8 +26,7 @@ import ph.codeia.fist.Mi;
 
 @SuppressLint({"DefaultLocale", "SetTextI18N"})
 public class MiEnumGuessTheNumber extends Fragment implements Play.Ui {
-    private final Fst<GuessingGame> game = new AndroidFst<>(new GuessingGame(6));
-    private Fst.Actor<GuessingGame, Play.Ui> ui;
+    private Fst.Binding<GuessingGame, Play.Ui> ui;
     private TextView message;
     private EditText input;
 
@@ -35,7 +34,8 @@ public class MiEnumGuessTheNumber extends Fragment implements Play.Ui {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        ui = AndroidTroupe.of(this).bind(game, this);
+        ui = LifecycleBinder.of(this)
+                .bind(new AndroidFst<>(new GuessingGame(6)), this);
     }
 
     @Nullable
@@ -52,7 +52,7 @@ public class MiEnumGuessTheNumber extends Fragment implements Play.Ui {
             String text = textView.getText().toString();
             if (keyEvent != null || text.isEmpty()) return false;
             ui.exec(Play.guess(Integer.parseInt(text)));
-            return game.project(GuessingGame::isNotDone);
+            return ui.project(GuessingGame::isNotDone);
         });
         return root;
     }
@@ -64,16 +64,17 @@ public class MiEnumGuessTheNumber extends Fragment implements Play.Ui {
     }
 
     @Override
-    public void clearInput() {
+    public void prepareForInput() {
         input.setText(null);
     }
 
     @Override
     public void onBegin(int maxTries) {
+        String tries = maxTries == 1 ? "try" : "tries";
         message.setText(String.format(""
                 + "Choose a number from 1-100 inclusive.%n"
-                + "You have %d tries to get it right.",
-                maxTries
+                + "You have %d %s to get it right.",
+                maxTries, tries
         ));
     }
 
@@ -131,7 +132,7 @@ class GuessingGame {
 class Play {
     interface Ui extends Effects<GuessingGame> {
         void tell(String message, Object... fmtArgs);
-        void clearInput();
+        void prepareForInput();
         void onBegin(int maxTries);
         void onLow(int guess, int triesLeft);
         void onHigh(int guess, int triesLeft);
@@ -141,25 +142,25 @@ class Play {
         @Override
         default void onEnter(GuessingGame game) {
             switch (game.state) {
-            case BEGIN:
-                onBegin(game.maxTries);
-                break;
-            case PLAYING:
-                if (game.guess < game.secret) {
-                    onLow(game.guess, game.triesLeft);
-                }
-                else {
-                    onHigh(game.guess, game.triesLeft);
-                }
-                break;
-            case GAME_OVER:
-                if (game.guess == game.secret) {
-                    onWin();
-                }
-                else {
-                    onLose(game.secret);
-                }
-                break;
+                case BEGIN:
+                    onBegin(game.maxTries);
+                    break;
+                case PLAYING:
+                    if (game.guess < game.secret) {
+                        onLow(game.guess, game.triesLeft);
+                    }
+                    else {
+                        onHigh(game.guess, game.triesLeft);
+                    }
+                    break;
+                case GAME_OVER:
+                    if (game.guess == game.secret) {
+                        onWin();
+                    }
+                    else {
+                        onLose(game.secret);
+                    }
+                    break;
             }
         }
     }
@@ -170,7 +171,7 @@ class Play {
             return Mi.async(() -> {
                 Thread.sleep(10_000);
                 return (_fg, futureUi) -> {
-                    futureUi.clearInput();
+                    futureUi.prepareForInput();
                     return Mi.enter(new GuessingGame(maxTries));
                 };
             });
@@ -180,23 +181,23 @@ class Play {
     static Mi.Action<GuessingGame, Ui> guess(int n) {
         return (game, ui) -> {
             switch (game.state) {
-            case BEGIN:
-                game.state = GuessingGame.State.PLAYING;
-                // fallthrough
-            case PLAYING:
-                game.guess = n;
-                game.triesLeft--;
-                if (n == game.secret || game.triesLeft == 0) {
-                    game.state = GuessingGame.State.GAME_OVER;
-                    return newGame(game.maxTries).after(Mi.reenter());
-                }
-                else {
-                    ui.clearInput();
-                    return Mi.reenter();
-                }
-            case GAME_OVER:
-                ui.tell("Wait for the new game to start");
-                return Mi.noop();
+                case BEGIN:
+                    game.state = GuessingGame.State.PLAYING;
+                    // fallthrough
+                case PLAYING:
+                    game.guess = n;
+                    game.triesLeft--;
+                    if (n == game.secret || game.triesLeft == 0) {
+                        game.state = GuessingGame.State.GAME_OVER;
+                        return newGame(game.maxTries).after(Mi.reenter());
+                    }
+                    else {
+                        ui.prepareForInput();
+                        return Mi.reenter();
+                    }
+                case GAME_OVER:
+                    ui.tell("Wait for the new game to start");
+                    return Mi.noop();
             }
             return Mi.raise(new IllegalStateException(game.state.name()));
         };

@@ -28,6 +28,13 @@ public class UnconfinedFst<S> extends AsyncFst<S> {
         super(state);
     }
 
+    /**
+     * Immediately runs the procedure in the caller's thread. For async tasks,
+     * it means the continuation will be called in the worker thread. I.e., not
+     * good for Android and other GUI platforms.
+     *
+     * @param proc The procedure to run in the main thread
+     */
     @Override
     protected void runOnMainThread(Runnable proc) {
         proc.run();

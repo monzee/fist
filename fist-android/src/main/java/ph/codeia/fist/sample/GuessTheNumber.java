@@ -14,7 +14,7 @@ import android.widget.TextView;
 import java.util.EnumSet;
 import java.util.Random;
 
-import ph.codeia.fist.AndroidTroupe;
+import ph.codeia.fist.LifecycleBinder;
 import ph.codeia.fist.AndroidFst;
 import ph.codeia.fist.Fst;
 import ph.codeia.fist.R;
@@ -38,29 +38,30 @@ public class GuessTheNumber extends AppCompatActivity {
         }
     }
 
-    private Fst<Game> game;
-    private Fst.Actor<Game, ?> screen;
+    private Game game;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
-        //noinspection unchecked
-        game = (AndroidFst<Game>) getLastCustomNonConfigurationInstance();
+        game = (Game) getLastCustomNonConfigurationInstance();
         if (game == null) {
-            game = new AndroidFst<>(new Game());
+            game = new Game();
         }
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_guessing_game);
         TextView message = findViewById(R.id.message);
         EditText input = findViewById(R.id.guess);
+        Fst.Binding<Game, ?> ui = LifecycleBinder.of(this).bind(
+                new AndroidFst<>(game),
+                state -> render(state, message)
+        );
         input.setOnEditorActionListener((textView, i, keyEvent) -> {
             String text = textView.getText().toString();
             if (keyEvent != null || text.isEmpty()) return false;
-            screen.exec(guess(Integer.parseInt(text)));
-            boolean notDone = game.project(Game::isNotDone);
+            ui.exec(guess(Integer.parseInt(text)));
+            boolean notDone = ui.project(Game::isNotDone);
             if (notDone) textView.setText(null);
             return notDone;
         });
-        screen = AndroidTroupe.of(this).bind(game, state -> render(state, message));
     }
 
     @Override
@@ -72,31 +73,31 @@ public class GuessTheNumber extends AppCompatActivity {
     static void render(Game state, TextView message) {
         String tries = state.triesLeft == 1 ? "try" : "tries";
         switch (state.result) {
-        case BEGIN:
-            message.setText(String.format(""
-                    + "Choose a number from 1-100 inclusive.%n"
-                    + "You have %d tries to get it right.",
-                    state.triesLeft
-            ));
-            break;
-        case WON:
-            message.setText("Correct! Starting a new game in 10 seconds...");
-            break;
-        case LOST:
-            message.setText(String.format("Game over! The number was %d.", state.secret));
-            break;
-        case LOW:
-            message.setText(String.format(
-                    "%d is too low; %d %s remaining.",
-                    state.guess, state.triesLeft, tries
-            ));
-            break;
-        case HIGH:
-            message.setText(String.format(
-                    "%d is too high; %d %s remaining.",
-                    state.guess, state.triesLeft, tries
-            ));
-            break;
+            case BEGIN:
+                message.setText(String.format(""
+                                + "Choose a number from 1-100 inclusive.%n"
+                                + "You have %d %s to get it right.",
+                        state.triesLeft, tries
+                ));
+                break;
+            case WON:
+                message.setText("Correct! Starting a new game in 10 seconds...");
+                break;
+            case LOST:
+                message.setText(String.format("Game over! The number was %d.", state.secret));
+                break;
+            case LOW:
+                message.setText(String.format(
+                        "%d is too low; %d %s remaining.",
+                        state.guess, state.triesLeft, tries
+                ));
+                break;
+            case HIGH:
+                message.setText(String.format(
+                        "%d is too high; %d %s remaining.",
+                        state.guess, state.triesLeft, tries
+                ));
+                break;
         }
     }
 
@@ -108,22 +109,22 @@ public class GuessTheNumber extends AppCompatActivity {
     static Mu.Action<Game> guess(int n) {
         return state -> {
             switch (state.result) {
-            case LOST:  // fallthrough
-            case WON:
-                return Mu.noop();
-            default:
-                if (n == state.secret) {
-                    state.result = Game.Result.WON;
-                    return Mu.enter(state).then(GuessTheNumber::newGame);
-                }
-                if (state.triesLeft == 1) {
-                    state.result = Game.Result.LOST;
-                    return Mu.enter(state).then(GuessTheNumber::newGame);
-                }
-                state.guess = n;
-                state.result = n < state.secret ? Game.Result.LOW : Game.Result.HIGH;
-                state.triesLeft--;
-                return Mu.reenter();
+                case LOST:  // fallthrough
+                case WON:
+                    return Mu.noop();
+                default:
+                    if (n == state.secret) {
+                        state.result = Game.Result.WON;
+                        return Mu.enter(state).then(GuessTheNumber::newGame);
+                    }
+                    if (state.triesLeft == 1) {
+                        state.result = Game.Result.LOST;
+                        return Mu.enter(state).then(GuessTheNumber::newGame);
+                    }
+                    state.guess = n;
+                    state.result = n < state.secret ? Game.Result.LOW : Game.Result.HIGH;
+                    state.triesLeft--;
+                    return Mu.reenter();
             }
         };
     }

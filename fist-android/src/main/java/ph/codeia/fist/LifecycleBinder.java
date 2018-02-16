@@ -8,51 +8,51 @@ import android.arch.lifecycle.GenericLifecycleObserver;
 import android.arch.lifecycle.Lifecycle;
 import android.arch.lifecycle.LifecycleOwner;
 
-public class AndroidTroupe {
+public class LifecycleBinder {
 
-    public static AndroidTroupe of(LifecycleOwner owner) {
-        return new AndroidTroupe(owner.getLifecycle());
+    public static LifecycleBinder of(LifecycleOwner owner) {
+        return new LifecycleBinder(owner.getLifecycle());
     }
 
     private final Lifecycle lifecycle;
 
-    public AndroidTroupe(Lifecycle lifecycle) {
+    public LifecycleBinder(Lifecycle lifecycle) {
         this.lifecycle = lifecycle;
     }
 
-    public <S, E extends Effects<S>> Fst.Actor<S, E> bind(Fst<S> fst, E effects) {
+    public <S, E extends Effects<S>> Fst.Binding<S, E> bind(Fst<S> fst, E effects) {
         return wrap(fst.bind(effects));
     }
 
-    public <S, E extends Effects<S>> Fst.Actor<S, E> wrap(Fst.Actor<S, E> inner) {
-        LifecycleBoundActor<S, E> decorator = new LifecycleBoundActor<>(inner);
+    public <S, E extends Effects<S>> Fst.Binding<S, E> wrap(Fst.Binding<S, E> inner) {
+        LifecycleBinding<S, E> decorator = new LifecycleBinding<>(inner);
         lifecycle.addObserver(decorator);
         return decorator;
     }
 
-    private static class LifecycleBoundActor<S, E extends Effects<S>>
-            implements GenericLifecycleObserver, Fst.Actor<S, E>
+    private static class LifecycleBinding<S, E extends Effects<S>>
+            implements GenericLifecycleObserver, Fst.Binding<S, E>
     {
-        private final Fst.Actor<S, E> delegate;
+        private final Fst.Binding<S, E> delegate;
 
-        LifecycleBoundActor(Fst.Actor<S, E> delegate) {
+        LifecycleBinding(Fst.Binding<S, E> delegate) {
             this.delegate = delegate;
         }
 
         @Override
         public void onStateChanged(LifecycleOwner source, Lifecycle.Event event) {
             switch (event) {
-            case ON_RESUME:
-                start();
-                break;
-            case ON_PAUSE:
-                stop();
-                break;
-            case ON_DESTROY:
-                source.getLifecycle().removeObserver(this);
-                break;
-            default:
-                break;
+                case ON_RESUME:
+                    start();
+                    break;
+                case ON_PAUSE:
+                    stop();
+                    break;
+                case ON_DESTROY:
+                    source.getLifecycle().removeObserver(this);
+                    break;
+                default:
+                    break;
             }
         }
 

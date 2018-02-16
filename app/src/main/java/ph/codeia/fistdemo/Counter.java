@@ -13,13 +13,13 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import ph.codeia.fist.AndroidTroupe;
+import ph.codeia.fist.LifecycleBinder;
 import ph.codeia.fist.BlockingFst;
 import ph.codeia.fist.Fst;
 import ph.codeia.fist.Mu;
 
 public class Counter extends Fragment {
-    private Fst.Actor<Integer, ?> ui;
+    private Fst.Binding<Integer, ?> ui;
     private TextView count;
 
     @SuppressLint("SetTextI18n")
@@ -27,7 +27,7 @@ public class Counter extends Fragment {
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setRetainInstance(true);
-        ui = AndroidTroupe.of(this).bind(
+        ui = LifecycleBinder.of(this).bind(
                 new BlockingFst<>(0),
                 n -> count.setText(Integer.toString(n))
         );

@@ -49,7 +49,7 @@ class MooreScope<S> {
     ): Mu<S> = Mu.async { block() }
 }
 
-inline fun <S, E : Effects<S>, T> Fst.Actor<S, E>.exec(
+inline fun <S, E : Effects<S>, T> Fst.Binding<S, E>.exec(
         action: Mi.Action<S, E>,
         crossinline projection: (S) -> T
 ): T {
@@ -57,7 +57,7 @@ inline fun <S, E : Effects<S>, T> Fst.Actor<S, E>.exec(
     return project { projection(it) }
 }
 
-inline fun <S, E : Effects<S>, T> Fst.Actor<S, E>.exec(
+inline fun <S, E : Effects<S>, T> Fst.Binding<S, E>.exec(
         action: Mu.Action<S>,
         crossinline projection: (S) -> T
 ): T {

@@ -19,7 +19,7 @@ import java.util.*
 
 class KtGuessTheNumber : Fragment() {
 
-    private lateinit var ui: Fst.Actor<GuessingGame, Ui>
+    private lateinit var ui: Fst.Binding<GuessingGame, Ui>
     private lateinit var guess: EditText
     private lateinit var message: TextView
 

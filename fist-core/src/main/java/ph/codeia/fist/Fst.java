@@ -19,7 +19,7 @@ public interface Fst<S> {
      * @param <S> The state type
      * @param <E> The receiver type
      */
-    interface Actor<S, E extends Effects<S>> {
+    interface Binding<S, E extends Effects<S>> {
         /**
          * @see Fst#start(Effects)
          */
@@ -48,15 +48,15 @@ public interface Fst<S> {
          */
         default <T> T project(Fn.Func<S, T> projection) {
             return new Mu.Action<S>() {
-                T t;
+                T result;
                 { exec(this); }
 
                 @Override
                 public Mu<S> apply(S state) {
-                    t = projection.apply(state);
+                    result = projection.apply(state);
                     return Mu.noop();
                 }
-            }.t;
+            }.result;
         }
 
         /**
@@ -163,8 +163,8 @@ public interface Fst<S> {
      * @param <E> The receiver type
      * @return a state machine with an associated receiver
      */
-    default <E extends Effects<S>> Actor<S, E> bind(E effects) {
-        return new Actor<S, E>() {
+    default <E extends Effects<S>> Binding<S, E> bind(E effects) {
+        return new Binding<S, E>() {
             @Override
             public void start() {
                 Fst.this.start(effects);
