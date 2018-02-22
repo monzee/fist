@@ -23,11 +23,10 @@ class KtGuessTheNumber : Fragment() {
     private lateinit var guess: EditText
     private lateinit var message: TextView
 
-    @SuppressLint("SetTextI18n")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         retainInstance = true
-        ui = bind(GuessingGame(6), object : Ui {
+        ui = bind(GuessingGame(6), @SuppressLint("SetTextI18n") object : Ui {
             override fun tell(message: String, vararg fmtArgs: Any?) {
                 Toast.makeText(context, message.format(fmtArgs), Toast.LENGTH_SHORT).show()
             }
@@ -37,17 +36,15 @@ class KtGuessTheNumber : Fragment() {
             }
 
             override fun onBegin(maxTries: Int) {
-                message.text = "Guess the number from 1-100. You have $maxTries tries."
+                message.text = "Guess the number from 1-100. You have $maxTries ${maxTries.tries}."
             }
 
             override fun onLow(guess: Int, triesLeft: Int) {
-                val tries = if (triesLeft == 1) "try" else "tries"
-                message.text = "$guess is too low; $triesLeft $tries left."
+                message.text = "$guess is too low; $triesLeft ${triesLeft.tries} left."
             }
 
             override fun onHigh(guess: Int, triesLeft: Int) {
-                val tries = if (triesLeft == 1) "try" else "tries"
-                message.text = "$guess is too high; $triesLeft $tries left."
+                message.text = "$guess is too high; $triesLeft ${triesLeft.tries} left."
             }
 
             override fun onWin() {
@@ -57,13 +54,15 @@ class KtGuessTheNumber : Fragment() {
             override fun onLose(secret: Int) {
                 message.text = "You lose! The number was $secret"
             }
+
+            private val Int.tries get() = if (this == 1) "try" else "tries"
         })
     }
 
     override fun onCreateView(
-            inflater: LayoutInflater,
-            container: ViewGroup?,
-            savedInstanceState: Bundle?
+        inflater: LayoutInflater,
+        container: ViewGroup?,
+        savedInstanceState: Bundle?
     ) = inflater.inflate(R.layout.activity_guessing_game, container, false)?.also {
         message = it.findViewById(R.id.message)
         guess = it.findViewById(R.id.guess)
@@ -72,8 +71,9 @@ class KtGuessTheNumber : Fragment() {
             when {
                 keyEvent != null -> false
                 input.isEmpty() -> false
-                else -> ui.exec(guess(input.toInt())) {
-                    it.isNotDone
+                else -> {
+                    ui += guess(input.toInt())
+                    ui.mapState(GuessingGame::isNotDone)
                 }
             }
         }
@@ -89,8 +89,7 @@ private class GuessingGame(val maxTries: Int) {
     var triesLeft = maxTries
     var guess = -1
     var state = State.BEGIN
-    val isNotDone: Boolean
-        get() = state != State.GAME_OVER
+    val isNotDone get() = state != State.GAME_OVER
 }
 
 private interface Ui : Effects<GuessingGame> {
@@ -119,7 +118,7 @@ private interface Ui : Effects<GuessingGame> {
 
 private fun newGame(maxTries: Int) = action<GuessingGame, Ui> { _, ui ->
     ui.tell("Starting a new game in 10 seconds.")
-    background {
+    async {
         Thread.sleep(10_000)
         action { _, futureUi ->
             futureUi.prepareForInput()
@@ -128,22 +127,20 @@ private fun newGame(maxTries: Int) = action<GuessingGame, Ui> { _, ui ->
     }
 }
 
-private fun guess(n: Int) = action<GuessingGame, Ui> { game, ui ->
+private fun guess(n: Int): Mi.Action<GuessingGame, Ui> = action { game, ui ->
     when (game.state) {
         State.BEGIN,
         State.PLAYING -> {
             game.state = State.PLAYING
             game.guess = n
             game.triesLeft--
-            when {
-                n == game.secret || game.triesLeft == 0 -> {
-                    game.state = State.GAME_OVER
-                    reenter then newGame(game.maxTries)
-                }
-                else -> {
-                    ui.prepareForInput()
-                    reenter
-                }
+            if (n == game.secret || game.triesLeft == 0) {
+                game.state = State.GAME_OVER
+                reenter + newGame(game.maxTries)
+            }
+            else {
+                ui.prepareForInput()
+                reenter
             }
         }
         State.GAME_OVER -> {

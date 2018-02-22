@@ -13,9 +13,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
 
-import ph.codeia.fist.LifecycleBinder;
 import ph.codeia.fist.BlockingFst;
 import ph.codeia.fist.Fst;
+import ph.codeia.fist.LifecycleBinder;
 import ph.codeia.fist.Mu;
 
 public class Counter extends Fragment {
