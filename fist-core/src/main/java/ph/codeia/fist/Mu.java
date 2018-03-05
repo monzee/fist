@@ -26,10 +26,10 @@ public final class Mu<S> {
      *
      * @param <S> The state type
      * @return a command object
-     * @see OnCommand#noop()
+     * @see Case#noop()
      */
     public static <S> Mu<S> noop() {
-        return new Mu<>(OnCommand::noop);
+        return new Mu<>(Case::noop);
     }
 
     /**
@@ -38,10 +38,10 @@ public final class Mu<S> {
      *
      * @param <S> The state type
      * @return a command object
-     * @see OnCommand#reenter()
+     * @see Case#reenter()
      */
     public static <S> Mu<S> reenter() {
-        return new Mu<>(OnCommand::reenter);
+        return new Mu<>(Case::reenter);
     }
 
     /**
@@ -50,7 +50,7 @@ public final class Mu<S> {
      * @param newState The new state
      * @param <S> The state type
      * @return a command object
-     * @see OnCommand#enter(Object)
+     * @see Case#enter(Object)
      */
     public static <S> Mu<S> enter(S newState) {
         return new Mu<>(sm -> sm.enter(newState));
@@ -62,7 +62,7 @@ public final class Mu<S> {
      * @param action The action to execute
      * @param <S> The state type
      * @return a command object
-     * @see OnCommand#forward(Action)
+     * @see Case#forward(Action)
      */
     public static <S> Mu<S> forward(Action<S> action) {
         return new Mu<>(sm -> sm.forward(action));
@@ -71,13 +71,17 @@ public final class Mu<S> {
     /**
      * Creates a command that runs an action in the background.
      *
-     * @param thunk The async action to execute
+     * @param block The async action to execute
      * @param <S> The state type
      * @return a command object
-     * @see OnCommand#async(Callable)
+     * @see Case#async(Callable)
      */
-    public static <S> Mu<S> async(Callable<Action<S>> thunk) {
-        return new Mu<>(sm -> sm.async(thunk));
+    public static <S> Mu<S> async(Callable<Action<S>> block) {
+        return new Mu<>(sm -> sm.async(block));
+    }
+
+    public static <S> Mu<S> defer(Fn.Proc<Continuation<S>> block) {
+        return new Mu<>(sm -> sm.defer(block));
     }
 
     /**
@@ -87,7 +91,7 @@ public final class Mu<S> {
      * @param e The error
      * @param <S> The state type
      * @return a command object
-     * @see OnCommand#raise(Throwable)
+     * @see Case#raise(Throwable)
      */
     public static <S> Mu<S> raise(Throwable e) {
         return new Mu<>(sm -> sm.raise(e));
@@ -122,10 +126,10 @@ public final class Mu<S> {
     /**
      * Runs the command against the selector.
      *
-     * @param onCommand The selector object/pattern
+     * @param selector The selector object/pattern
      */
-    public void run(OnCommand<S> onCommand) {
-        command.run(onCommand);
+    public void run(Case<S> selector) {
+        command.run(selector);
     }
 
     /**
@@ -195,7 +199,7 @@ public final class Mu<S> {
     }
 
     private interface Command<S> {
-        void run(OnCommand<S> onCommand);
+        void run(Case<S> selector);
     }
 
     /**
@@ -365,7 +369,7 @@ public final class Mu<S> {
      *
      * @param <S> The state type
      */
-    public interface OnCommand<S> {
+    public interface Case<S> {
         /**
          * The receiver will not be notified after the action.
          */
@@ -392,12 +396,14 @@ public final class Mu<S> {
         void forward(Action<S> action);
 
         /**
-         * Submits the thunk for background execution then executes the
+         * Submits the block for background execution then executes the
          * resulting action.
          *
-         * @param thunk The task to do in the background
+         * @param block The task to do in the background
          */
-        void async(Callable<Action<S>> thunk);
+        void async(Callable<Action<S>> block);
+
+        void defer(Fn.Proc<Continuation<S>> block);
 
         /**
          * Indicates that an error has occurred during an action.
@@ -405,6 +411,18 @@ public final class Mu<S> {
          * @param e The error
          */
         void raise(Throwable e);
+    }
+
+    public interface Continuation<S> {
+        void resume(Action<S> nextAction);
+
+        default void ok(S newState) {
+            resume(Action.pure(newState));
+        }
+
+        default void fail(Exception error) {
+            resume(Action.pure(Mu.raise(error)));
+        }
     }
 
     @Deprecated

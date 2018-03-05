@@ -5,17 +5,16 @@ package ph.codeia.fist;
  */
 
 import java.lang.ref.WeakReference;
-import java.util.Queue;
+import java.util.Map;
+import java.util.WeakHashMap;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.FutureTask;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Asynchronous state machine base implementation.
@@ -34,11 +33,11 @@ public abstract class AsyncFst<S> implements Fst<S> {
      * run actions in parallel.
      */
     public static class Builder implements Fst.Builder {
-        private static final ExecutorService DEFAULT_WORKER = Executors.newSingleThreadExecutor();
-        private static final ExecutorService DEFAULT_JOINER = Executors.newSingleThreadExecutor();
+        private static final Executor DEFAULT_WORKER = Executors.newSingleThreadExecutor();
+        private static final Executor DEFAULT_JOINER = Executors.newSingleThreadExecutor();
 
-        private ExecutorService worker = DEFAULT_WORKER;
-        private ExecutorService joiner = DEFAULT_JOINER;
+        private Executor worker = DEFAULT_WORKER;
+        private Executor joiner = DEFAULT_JOINER;
         private long timeoutMillis = 60_000;
 
         /**
@@ -70,7 +69,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
          * @param worker The executor service to submit async actions to
          * @return this
          */
-        public Builder workOn(ExecutorService worker) {
+        public Builder workOn(Executor worker) {
             this.worker = worker;
             return this;
         }
@@ -81,7 +80,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
          * @param joiner The executor service to submit await actions to
          * @return this
          */
-        public Builder joinOn(ExecutorService joiner) {
+        public Builder joinOn(Executor joiner) {
             this.joiner = joiner;
             return this;
         }
@@ -92,11 +91,10 @@ public abstract class AsyncFst<S> implements Fst<S> {
         }
     }
 
-    private final Queue<Future<Mu.Action<S>>> muBacklog = new ConcurrentLinkedQueue<>();
-    private final Queue<Future> miBacklog = new ConcurrentLinkedQueue<>();
-    private final Queue<AtomicReference<Future<?>>> pending = new ConcurrentLinkedQueue<>();
-    private final ExecutorService worker;
-    private final ExecutorService joiner;
+    private final Executor joiner;
+    private final Executor worker;
+    private final BlockingQueue<Mu.Action<S>> deferred = new LinkedBlockingQueue<>();
+    private final Map<Class<?>, BlockingQueue<Mi.Action>> deferredByClass = new WeakHashMap<>();
     private final long timeout;
     private volatile boolean isRunning;
     private volatile S state;
@@ -127,116 +125,173 @@ public abstract class AsyncFst<S> implements Fst<S> {
     protected abstract void runOnMainThread(Runnable proc);
 
     @Override
-    public final void start(Effects<S> effects) {
+    public void start(Effects<S> effects) {
         if (isRunning) return;
         isRunning = true;
         effects.onEnter(state);  // TODO: force main thread?
-        WeakReference<Effects<S>> weakEffects = new WeakReference<>(effects);
-        for (Future<Mu.Action<S>> work : muBacklog) {
-            joinMoore(work, weakEffects);
-        }
-        for (Future work : miBacklog) {
-            //noinspection unchecked
-            joinMealy(work, weakEffects);
-        }
+        joiner.execute(() -> {
+            for (Mu.Action<S> action; null != (action = deferred.poll());) {
+                exec(effects, action);
+            }
+            BlockingQueue<Mi.Action> deferredMealy = deferredByClass.get(effects.getClass());
+            if (deferredMealy != null) {
+                for (Mi.Action action; null != (action = deferredMealy.poll());) {
+                    //noinspection unchecked
+                    exec(effects, action);
+                }
+            }
+        });
     }
 
     @Override
     public void stop() {
-        if (!isRunning) return;
         isRunning = false;
-        for (AtomicReference<Future<?>> joinRef : pending) {
-            Future<?> join = joinRef.get();
-            if (join != null) {
-                join.cancel(true);
-            }
-        }
     }
 
     @Override
     public void exec(Effects<S> effects, Mu.Action<S> action) {
         if (!isRunning) {
-            FutureTask<Mu.Action<S>> task = new FutureTask<>(() -> action);
-            task.run();
-            muBacklog.add(task);
+            deferred.offer(action);
             return;
         }
-        runOnMainThread(() -> action.apply(state).run(new Mu.OnCommand<S>() {
-            @Override
-            public void noop() {
-            }
+        runOnMainThread(() -> {
+            try {
+                action.apply(state).run(new Mu.Case<S>() {
+                    @Override
+                    public void noop() {
+                    }
 
-            @Override
-            public void reenter() {
-                effects.onEnter(state);
-            }
+                    @Override
+                    public void reenter() {
+                        effects.onEnter(state);
+                    }
 
-            @Override
-            public void enter(S newState) {
-                state = newState;
-                effects.onEnter(state);
-            }
+                    @Override
+                    public void enter(S newState) {
+                        effects.onExit(state, newState);
+                        state = newState;
+                        effects.onEnter(newState);
+                    }
 
-            @Override
-            public void forward(Mu.Action<S> action) {
-                action.apply(state).run(this);
-            }
+                    @Override
+                    public void forward(Mu.Action<S> action) {
+                        action.apply(state).run(this);
+                    }
 
-            @Override
-            public void async(Callable<Mu.Action<S>> thunk) {
-                Future<Mu.Action<S>> work = worker.submit(thunk);
-                muBacklog.add(work);
-                joinMoore(work, new WeakReference<>(effects));
-            }
+                    @Override
+                    public void async(Callable<Mu.Action<S>> block) {
+                        AtomicBoolean timedOut = new AtomicBoolean(false);
+                        //noinspection UnnecessaryLocalVariable
+                        BlockingQueue<Mu.Action<S>> queue = deferred;
+                        // local copy to prevent capture of AsyncFst.this which i
+                        // believe also causes Mu.Case.this to be captured which
+                        // itself captures Effects, causing it to held uselessly
+                        // during the async call
+                        worker.execute(() -> {
+                            Mu.Action<S> action;
+                            try {
+                                action = block.call();
+                            }
+                            catch (Exception e) {
+                                action = Mu.Action.pure(Mu.raise(e));
+                            }
+                            synchronized (timedOut) {
+                                if (!timedOut.get()) {
+                                    queue.offer(action);
+                                }
+                            }
+                        });
+                        join(new WeakReference<>(effects), timedOut);
+                    }
 
-            @Override
-            public void raise(Throwable e) {
+                    @Override
+                    public void defer(Fn.Proc<Mu.Continuation<S>> block) {
+                        BlockingQueue<Mu.Action<S>> next = new ArrayBlockingQueue<>(1);
+                        block.receive(next::offer);
+                        async(next::take);
+                    }
+
+                    @Override
+                    public void raise(Throwable e) {
+                        effects.handle(e);
+                    }
+                });
+            }
+            catch (RuntimeException e) {
                 effects.handle(e);
             }
-        }));
+        });
     }
 
     @Override
     public <E extends Effects<S>> void exec(E effects, Mi.Action<S, E> action) {
+        Class<? extends Effects> key = effects.getClass();
         if (!isRunning) {
-            FutureTask<Mi.Action<S, E>> task = new FutureTask<>(() -> action);
-            task.run();
-            miBacklog.add(task);
+            getOrMakeQueueFor(key).offer(action);
             return;
         }
-        runOnMainThread(() -> action.apply(state, effects).run(new Mi.OnCommand<S, E>() {
-            @Override
-            public void noop() {
-            }
+        runOnMainThread(() -> {
+            try {
+                action.apply(state, effects).run(new Mi.Case<S, E>() {
+                    @Override
+                    public void noop() {
+                    }
 
-            @Override
-            public void reenter() {
-                effects.onEnter(state);
-            }
+                    @Override
+                    public void reenter() {
+                        effects.onEnter(state);
+                    }
 
-            @Override
-            public void enter(S newState) {
-                state = newState;
-                effects.onEnter(state);
-            }
+                    @Override
+                    public void enter(S newState) {
+                        effects.onExit(state, newState);
+                        state = newState;
+                        effects.onEnter(newState);
+                    }
 
-            @Override
-            public void forward(Mi.Action<S, E> action) {
-                action.apply(state, effects).run(this);
-            }
+                    @Override
+                    public void forward(Mi.Action<S, E> action) {
+                        action.apply(state, effects).run(this);
+                    }
 
-            @Override
-            public void async(Callable<Mi.Action<S, E>> thunk) {
-                Future<Mi.Action<S, E>> work = worker.submit(thunk);
-                miBacklog.add(work);
-                joinMealy(work, new WeakReference<>(effects));
-            }
+                    @Override
+                    public void async(Callable<Mi.Action<S, E>> block) {
+                        AtomicBoolean timedOut = new AtomicBoolean(false);
+                        BlockingQueue<Mi.Action> queue = getOrMakeQueueFor(key);
+                        worker.execute(() -> {
+                            Mi.Action<S, E> action;
+                            try {
+                                action = block.call();
+                            }
+                            catch (Exception e) {
+                                action = Mi.Action.pure(Mi.raise(e));
+                            }
+                            synchronized (timedOut) {
+                                if (!timedOut.get()) {
+                                    queue.offer(action);
+                                }
+                            }
+                        });
+                        join(new WeakReference<>(effects), queue, timedOut);
+                    }
 
-            @Override
-            public void raise(Throwable e) {
+                    @Override
+                    public void defer(Fn.Proc<Mi.Continuation<S, E>> block) {
+                        BlockingQueue<Mi.Action<S, E>> next = new ArrayBlockingQueue<>(1);
+                        block.receive(next::offer);
+                        async(next::take);
+                    }
+
+                    @Override
+                    public void raise(Throwable e) {
+                        effects.handle(e);
+                    }
+                });
+            }
+            catch (RuntimeException e) {
                 effects.handle(e);
             }
-        }));
+        });
     }
 
     @Override
@@ -244,97 +299,75 @@ public abstract class AsyncFst<S> implements Fst<S> {
         return projection.apply(state);
     }
 
-    private void joinMoore(
-            Future<Mu.Action<S>> work,
-            WeakReference<Effects<S>> weakEffects
-    ) {
-        AtomicReference<Future<?>> joinRef = new AtomicReference<>();
-        pending.add(joinRef);
-        joinRef.set(joiner.submit(() -> {
+    private void join(WeakReference<Effects<S>> weakFx, AtomicBoolean timedOut) {
+        joiner.execute(() -> {
             try {
-                Mu.Action<S> action = timeout > 0 ?
-                        work.get(timeout, TimeUnit.MILLISECONDS) :
-                        work.get();
-                muBacklog.remove(work);
-                Effects<S> effects = weakEffects.get();
-                if (effects != null) {
-                    exec(effects, action);
+                Mu.Action<S> action = deferred.poll(timeout, TimeUnit.MILLISECONDS);
+                synchronized (timedOut) {
+                    // query one more time. it's possible that the other thread
+                    // acquired the lock first and enqueued an action just as
+                    // the timeout expires
+                    if (action == null) {
+                        action = deferred.poll();
+                    }
+                    // still nothing; meaning we got the lock first. tell the
+                    // other thread not to enqueue its action
+                    if (action == null) {
+                        timedOut.set(true);
+                        return;
+                    }
+                }
+                Effects<S> fx = weakFx.get();
+                if (fx != null) {
+                    exec(fx, action);
+                }
+                else {
+                    deferred.offer(action);
                 }
             }
             catch (InterruptedException ignored) {
-            }
-            catch (ExecutionException e) {
-                muBacklog.remove(work);
-                handle(e.getCause(), weakEffects);
-            }
-            catch (TimeoutException e) {
-                muBacklog.remove(work);
-                work.cancel(true);
-                handle(e, weakEffects);
-            }
-            finally {
-                pending.remove(joinRef);
-                joinRef.set(null);
-            }
-        }));
-    }
-
-    private <E extends Effects<S>> void joinMealy(
-            Future<Mi.Action<S, E>> work,
-            WeakReference<E> weakEffects
-    ) {
-        AtomicReference<Future<?>> joinRef = new AtomicReference<>();
-        pending.add(joinRef);
-        joinRef.set(joiner.submit(() -> {
-            try {
-                Mi.Action<S, E> action = timeout > 0 ?
-                        work.get(timeout, TimeUnit.MILLISECONDS) :
-                        work.get();
-                E effects = weakEffects.get();
-                if (effects == null) {
-                    miBacklog.remove(work);
-                }
-                else try {
-                    exec(effects, action);
-                    miBacklog.remove(work);
-                }
-                catch (ClassCastException ignored) {
-                    // attempted to join a future that was initiated by a
-                    // different actor type. this could happen only when
-                    // the machine is stopped in the middle of a task and
-                    // then started again and #exec(E, Mi.Action) was
-                    // called with multiple types of E. must not take the
-                    // future off the queue in this case and let something
-                    // else join it.
-                }
-            }
-            catch (InterruptedException ignored) {
-            }
-            catch (ExecutionException e) {
-                miBacklog.remove(work);
-                handle(e.getCause(), weakEffects);
-            }
-            catch (TimeoutException e) {
-                miBacklog.remove(work);
-                work.cancel(true);
-                handle(e, weakEffects);
-            }
-            finally {
-                pending.remove(joinRef);
-                joinRef.set(null);
-            }
-        }));
-    }
-
-    private void handle(Throwable e, WeakReference<? extends Effects<S>> weakEffects) {
-        runOnMainThread(() -> {
-            Effects<S> effects = weakEffects.get();
-            if (effects != null) {
-                effects.handle(e);
-            }
-            else {
-                throw new RuntimeException(e);
             }
         });
+    }
+
+    private void join(
+            WeakReference<Effects<S>> weakFx,
+            BlockingQueue<Mi.Action> queue,
+            AtomicBoolean timedOut
+    ) {
+        joiner.execute(() -> {
+            try {
+                Mi.Action action = queue.poll(timeout, TimeUnit.MILLISECONDS);
+                synchronized (timedOut) {
+                    if (action == null) {
+                        action = queue.poll();
+                    }
+                    if (action == null) {
+                        timedOut.set(true);
+                        return;
+                    }
+                }
+                Effects<S> fx = weakFx.get();
+                if (fx != null) {
+                    //noinspection unchecked
+                    exec(fx, action);
+                }
+                else {
+                    queue.offer(action);
+                }
+            }
+            catch (InterruptedException ignored) {
+            }
+        });
+    }
+
+    private BlockingQueue<Mi.Action> getOrMakeQueueFor(Class<?> key) {
+        BlockingQueue<Mi.Action> value = deferredByClass.get(key);
+        //noinspection Java8MapApi
+        if (value == null) {
+            value = new LinkedBlockingQueue<>();
+            deferredByClass.put(key, value);
+        }
+        return value;
     }
 }

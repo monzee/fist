@@ -36,10 +36,10 @@ public final class Mi<S, E> {
      * @param <S> The state type
      * @param <E> The receiver type
      * @return a command object for the state machine
-     * @see OnCommand#noop()
+     * @see Case#noop()
      */
     public static <S, E> Mi<S, E> noop() {
-        return new Mi<>(OnCommand::noop);
+        return new Mi<>(Case::noop);
     }
 
     /**
@@ -49,10 +49,10 @@ public final class Mi<S, E> {
      * @param <S> The state type
      * @param <E> The receiver type
      * @return a command object for the state machine
-     * @see OnCommand#reenter()
+     * @see Case#reenter()
      */
     public static <S, E> Mi<S, E> reenter() {
-        return new Mi<>(OnCommand::reenter);
+        return new Mi<>(Case::reenter);
     }
 
     /**
@@ -62,7 +62,7 @@ public final class Mi<S, E> {
      * @param <S> The state type
      * @param <E> The receiver type
      * @return a command object for the state machine
-     * @see OnCommand#enter(Object)
+     * @see Case#enter(Object)
      */
     public static <S, E> Mi<S, E> enter(S newState) {
         return new Mi<>(on -> on.enter(newState));
@@ -75,7 +75,7 @@ public final class Mi<S, E> {
      * @param <S> The state type
      * @param <E> The receiver type
      * @return a command object for the state machine
-     * @see OnCommand#forward(Action)
+     * @see Case#forward(Action)
      */
     public static <S, E> Mi<S, E> forward(Action<S, E> action) {
         return new Mi<>(on -> on.forward(action));
@@ -84,14 +84,18 @@ public final class Mi<S, E> {
     /**
      * Creates a command that runs an action in the background.
      *
-     * @param thunk The background task to execute
+     * @param block The background task to execute
      * @param <S> The state type
      * @param <E> The receiver type
      * @return a command object for the state machine
-     * @see OnCommand#async(Callable)
+     * @see Case#async(Callable)
      */
-    public static <S, E> Mi<S, E> async(Callable<Action<S, E>> thunk) {
-        return new Mi<>(on -> on.async(thunk));
+    public static <S, E> Mi<S, E> async(Callable<Action<S, E>> block) {
+        return new Mi<>(on -> on.async(block));
+    }
+
+    public static <S, E> Mi<S, E> defer(Fn.Proc<Continuation<S, E>> block) {
+        return new Mi<>(on -> on.defer(block));
     }
 
     /**
@@ -102,7 +106,7 @@ public final class Mi<S, E> {
      * @param <S> The state type
      * @param <E> The receiver type
      * @return a command object for the state machine
-     * @see OnCommand#raise(Throwable)
+     * @see Case#raise(Throwable)
      */
     public static <S, E> Mi<S, E> raise(Throwable e) {
         return new Mi<>(on -> on.raise(e));
@@ -137,10 +141,10 @@ public final class Mi<S, E> {
     /**
      * Runs the command against the selector.
      *
-     * @param onCommand The selector object/pattern
+     * @param selector The selector object/pattern
      */
-    public void run(OnCommand<S, E> onCommand) {
-        command.run(onCommand);
+    public void run(Case<S, E> selector) {
+        command.run(selector);
     }
 
     /**
@@ -210,7 +214,7 @@ public final class Mi<S, E> {
     }
 
     private interface Command<S, E> {
-        void run(OnCommand<S, E> onCommand);
+        void run(Case<S, E> selector);
     }
 
     /**
@@ -236,7 +240,7 @@ public final class Mi<S, E> {
          * @param s The current state
          * @param e The state receiver
          * @return a command object for the state machine
-         * @see Mi.OnCommand
+         * @see Case
          */
         Mi<S, E> apply(S s, E e);
 
@@ -415,7 +419,7 @@ public final class Mi<S, E> {
      * @param <S> The state type
      * @param <E> The receiver type
      */
-    public interface OnCommand<S, E> {
+    public interface Case<S, E> {
         /**
          * The receiver will not be notified after the action.
          */
@@ -442,12 +446,14 @@ public final class Mi<S, E> {
         void forward(Action<S, E> action);
 
         /**
-         * Submits the thunk for background execution then executes the
+         * Submits the block for background execution then executes the
          * resulting action.
          *
-         * @param thunk The task to do in the background
+         * @param block The task to do in the background
          */
-        void async(Callable<Action<S, E>> thunk);
+        void async(Callable<Action<S, E>> block);
+
+        void defer(Fn.Proc<Continuation<S, E>> block);
 
         /**
          * Indicates that an error has occurred during an action.
@@ -455,6 +461,18 @@ public final class Mi<S, E> {
          * @param e The error
          */
         void raise(Throwable e);
+    }
+
+    public interface Continuation<S, E> {
+        void resume(Action<S, E> nextAction);
+
+        default void ok(S newState) {
+            resume(Action.pure(newState));
+        }
+
+        default void fail(Exception error) {
+            resume(Action.pure(Mi.raise(error)));
+        }
     }
 
     @Deprecated

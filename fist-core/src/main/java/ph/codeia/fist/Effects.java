@@ -21,6 +21,9 @@ public interface Effects<S> {
      */
     void onEnter(S s);
 
+    default void onExit(S oldState, S newState) {
+    }
+
     /**
      * Called when the machine executes a RAISE command. The default
      * implementation rethrows the exception wrapped in a RuntimeException.

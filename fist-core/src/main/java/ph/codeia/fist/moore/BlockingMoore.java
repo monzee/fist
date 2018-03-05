@@ -34,7 +34,7 @@ public class BlockingMoore<S> implements Mu.Runner<S> {
     @Override
     public void exec(Effects<S> effects, Mu.Action<S> action) {
         if (!isRunning) return;
-        action.apply(state).run(new Mu.OnCommand<S>() {
+        action.apply(state).run(new Mu.Case<S>() {
             @Override
             public void noop() {
             }
@@ -56,13 +56,18 @@ public class BlockingMoore<S> implements Mu.Runner<S> {
             }
 
             @Override
-            public void async(Callable<Mu.Action<S>> thunk) {
+            public void async(Callable<Mu.Action<S>> block) {
                 try {
-                    exec(effects, thunk.call());
+                    exec(effects, block.call());
                 }
                 catch (Exception e) {
                     raise(e);
                 }
+            }
+
+            @Override
+            public void defer(Fn.Proc<Mu.Continuation<S>> block) {
+
             }
 
             @Override

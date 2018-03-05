@@ -8,26 +8,14 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 
-/**
- * A synchronous state machine.
- * <p>
- * This is the simplest possible implementation of {@link Fst} where all async
- * actions are executed and awaited in the same thread as the caller. This is
- * also always-on, so an action is guaranteed to run immediately as soon as
- * {@code exec} is called. Actions cannot be deferred by stopping and starting
- * as this class does not maintain any sort of queue.
- *
- * @param <S> The state type
- */
-public class BlockingFst<S> implements Fst<S> {
-
+public class TrackingFst<S> implements Fst<S> {
+    private enum Kind {NOOP, REENTER, ENTER, RAISE}
     private S state;
+    private Throwable error;
+    private Kind lastCmd;
 
-    /**
-     * @param state The initial state
-     */
-    public BlockingFst(S state) {
-        this.state = state;
+    public TrackingFst(S initialState) {
+        state = initialState;
     }
 
     @Override
@@ -44,18 +32,21 @@ public class BlockingFst<S> implements Fst<S> {
         action.apply(state).run(new Mu.Case<S>() {
             @Override
             public void noop() {
+                lastCmd = Kind.NOOP;
             }
 
             @Override
             public void reenter() {
+                lastCmd = Kind.REENTER;
                 effects.onEnter(state);
             }
 
             @Override
             public void enter(S newState) {
+                lastCmd = Kind.ENTER;
                 effects.onExit(state, newState);
                 state = newState;
-                effects.onEnter(state);
+                effects.onEnter(newState);
             }
 
             @Override
@@ -82,7 +73,8 @@ public class BlockingFst<S> implements Fst<S> {
 
             @Override
             public void raise(Throwable e) {
-                effects.handle(e);
+                lastCmd = Kind.RAISE;
+                error = e;
             }
         });
     }
@@ -92,15 +84,18 @@ public class BlockingFst<S> implements Fst<S> {
         action.apply(state, effects).run(new Mi.Case<S, E>() {
             @Override
             public void noop() {
+                lastCmd = Kind.NOOP;
             }
 
             @Override
             public void reenter() {
+                lastCmd = Kind.REENTER;
                 effects.onEnter(state);
             }
 
             @Override
             public void enter(S newState) {
+                lastCmd = Kind.ENTER;
                 effects.onExit(state, newState);
                 state = newState;
                 effects.onEnter(newState);
@@ -130,7 +125,8 @@ public class BlockingFst<S> implements Fst<S> {
 
             @Override
             public void raise(Throwable e) {
-                effects.handle(e);
+                lastCmd = Kind.RAISE;
+                error = e;
             }
         });
     }
@@ -138,5 +134,37 @@ public class BlockingFst<S> implements Fst<S> {
     @Override
     public <T> T project(Fn.Func<S, T> projection) {
         return projection.apply(state);
+    }
+
+    public boolean didNothing() {
+        return lastCmd == Kind.NOOP;
+    }
+
+    public boolean didNothing(Fn.Func<S, Boolean> assertion) {
+        return didNothing() && assertion.apply(state);
+    }
+
+    public boolean didReenter() {
+        return lastCmd == Kind.REENTER;
+    }
+
+    public boolean didReenter(Fn.Func<S, Boolean> assertion) {
+        return didReenter() && assertion.apply(state);
+    }
+
+    public boolean didEnter() {
+        return lastCmd == Kind.ENTER;
+    }
+
+    public boolean didEnter(Fn.Func<S, Boolean> assertion) {
+        return didEnter() && assertion.apply(state);
+    }
+
+    public boolean didRaise() {
+        return lastCmd == Kind.RAISE;
+    }
+
+    public boolean didRaise(Fn.Func<Throwable, Boolean> assertion) {
+        return didRaise() && assertion.apply(error);
     }
 }

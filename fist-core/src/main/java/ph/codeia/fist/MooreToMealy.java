@@ -25,7 +25,7 @@ public class MooreToMealy<S, E extends Effects<S>> implements Mi.Action<S, E> {
 
     @Override
     public Mi<S, E> apply(S state, E ignored) {
-        return new Mu.OnCommand<S>() {
+        return new Mu.Case<S>() {
             Mi<S, E> command;
 
             {
@@ -53,8 +53,15 @@ public class MooreToMealy<S, E extends Effects<S>> implements Mi.Action<S, E> {
             }
 
             @Override
-            public void async(Callable<Mu.Action<S>> thunk) {
-                command = Mi.async(() -> new MooreToMealy<>(thunk.call()));
+            public void async(Callable<Mu.Action<S>> block) {
+                command = Mi.async(() -> new MooreToMealy<>(block.call()));
+            }
+
+            @Override
+            public void defer(Fn.Proc<Mu.Continuation<S>> block) {
+                command = Mi.defer(inner -> block.receive(
+                        nextAction -> inner.resume(new MooreToMealy<>(nextAction))
+                ));
             }
 
             @Override

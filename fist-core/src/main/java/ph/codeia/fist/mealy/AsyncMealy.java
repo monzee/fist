@@ -60,7 +60,7 @@ public abstract class AsyncMealy<S, E extends Effects<S>> implements Mi.Runner<S
     @Override
     public void exec(E effects, Mi.Action<S, E> action) {
         if (!isRunning) return;
-        runOnMainThread(() -> action.apply(state, effects).run(new Mi.OnCommand<S, E>() {
+        runOnMainThread(() -> action.apply(state, effects).run(new Mi.Case<S, E>() {
             @Override
             public void noop() {
             }
@@ -82,10 +82,15 @@ public abstract class AsyncMealy<S, E extends Effects<S>> implements Mi.Runner<S
             }
 
             @Override
-            public void async(Callable<Mi.Action<S, E>> thunk) {
-                Future<Mi.Action<S, E>> work = worker.submit(thunk);
+            public void async(Callable<Mi.Action<S, E>> block) {
+                Future<Mi.Action<S, E>> work = worker.submit(block);
                 backlog.add(work);
                 join(work, new WeakReference<>(effects));
+            }
+
+            @Override
+            public void defer(Fn.Proc<Mi.Continuation<S, E>> block) {
+
             }
 
             @Override

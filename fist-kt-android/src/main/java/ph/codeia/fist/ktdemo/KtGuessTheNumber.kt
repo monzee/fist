@@ -73,7 +73,7 @@ class KtGuessTheNumber : Fragment() {
                 input.isEmpty() -> false
                 else -> {
                     ui += guess(input.toInt())
-                    ui.mapState(GuessingGame::isNotDone)
+                    ui(GuessingGame::isNotDone)
                 }
             }
         }
@@ -127,7 +127,7 @@ private fun newGame(maxTries: Int) = action<GuessingGame, Ui> { _, ui ->
     }
 }
 
-private fun guess(n: Int): Mi.Action<GuessingGame, Ui> = action { game, ui ->
+private fun guess(n: Int) = action<GuessingGame, Ui> { game, ui ->
     when (game.state) {
         State.BEGIN,
         State.PLAYING -> {

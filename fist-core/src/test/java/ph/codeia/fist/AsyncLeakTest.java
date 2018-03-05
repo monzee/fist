@@ -9,9 +9,9 @@ import org.junit.Test;
 import java.lang.ref.PhantomReference;
 import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
+import java.util.concurrent.CountDownLatch;
 
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
+import static org.junit.Assert.*;
 
 public class AsyncLeakTest {
 
@@ -48,13 +48,15 @@ public class AsyncLeakTest {
 
         Fst<Integer> fst = new UnconfinedFst<>(0);
         fst.start(p);
+        CountDownLatch done = new CountDownLatch(1);
         fst.exec(p, Mu.Action.pure(() -> {
-            Thread.sleep(10_000);
+            done.await();
             return Mu.Action.pure(0);
         }));
 
         p = null;
         assertNotNull(gc(q));
+        done.countDown();
     }
 
     @Test(timeout=1000)
@@ -65,12 +67,14 @@ public class AsyncLeakTest {
 
         Fst<Integer> fst = new UnconfinedFst<>(0);
         fst.start(p);
+        CountDownLatch done = new CountDownLatch(1);
         fst.exec(p, Mi.Action.pure(() -> {
-            Thread.sleep(10_000);
+            done.await();
             return Mi.Action.pure(0);
         }));
 
         p = null;
         assertNotNull(gc(q));
+        done.countDown();
     }
 }

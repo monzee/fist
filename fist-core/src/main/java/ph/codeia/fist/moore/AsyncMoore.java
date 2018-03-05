@@ -61,7 +61,7 @@ public abstract class AsyncMoore<S> implements Mu.Runner<S> {
     @Override
     public void exec(Effects<S> effects, Mu.Action<S> action) {
         if (!isRunning) return;
-        runOnMainThread(() -> action.apply(state).run(new Mu.OnCommand<S>() {
+        runOnMainThread(() -> action.apply(state).run(new Mu.Case<S>() {
             @Override
             public void noop() {
             }
@@ -83,10 +83,15 @@ public abstract class AsyncMoore<S> implements Mu.Runner<S> {
             }
 
             @Override
-            public void async(Callable<Mu.Action<S>> thunk) {
-                Future<Mu.Action<S>> work = worker.submit(thunk);
+            public void async(Callable<Mu.Action<S>> block) {
+                Future<Mu.Action<S>> work = worker.submit(block);
                 backlog.add(work);
                 join(new WeakReference<>(effects), work);
+            }
+
+            @Override
+            public void defer(Fn.Proc<Mu.Continuation<S>> block) {
+
             }
 
             @Override

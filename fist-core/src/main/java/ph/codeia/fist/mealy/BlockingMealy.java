@@ -33,7 +33,7 @@ public class BlockingMealy<S, E extends Effects<S>> implements Mi.Runner<S, E> {
     @Override
     public void exec(E effects, Mi.Action<S, E> action) {
         if (!isRunning) return;
-        action.apply(state, effects).run(new Mi.OnCommand<S, E>() {
+        action.apply(state, effects).run(new Mi.Case<S, E>() {
             @Override
             public void noop() {
             }
@@ -55,13 +55,18 @@ public class BlockingMealy<S, E extends Effects<S>> implements Mi.Runner<S, E> {
             }
 
             @Override
-            public void async(Callable<Mi.Action<S, E>> thunk) {
+            public void async(Callable<Mi.Action<S, E>> block) {
                 try {
-                    forward(thunk.call());
+                    forward(block.call());
                 }
                 catch (Exception e) {
                     raise(e);
                 }
+            }
+
+            @Override
+            public void defer(Fn.Proc<Mi.Continuation<S, E>> block) {
+
             }
 
             @Override
