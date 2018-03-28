@@ -4,8 +4,6 @@ package ph.codeia.fist;
  * This file is a part of the fist project.
  */
 
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 
 /**
@@ -41,98 +39,108 @@ public class BlockingFst<S> implements Fst<S> {
 
     @Override
     public void exec(Effects<S> effects, Mu.Action<S> action) {
-        action.apply(state).run(new Mu.Case<S>() {
-            @Override
-            public void noop() {
-            }
-
-            @Override
-            public void reenter() {
-                effects.onEnter(state);
-            }
-
-            @Override
-            public void enter(S newState) {
-                effects.onExit(state, newState);
-                state = newState;
-                effects.onEnter(state);
-            }
-
-            @Override
-            public void forward(Mu.Action<S> action) {
-                action.apply(state).run(this);
-            }
-
-            @Override
-            public void async(Callable<Mu.Action<S>> block) {
-                try {
-                    forward(block.call());
+        try {
+            action.apply(state).run(new Mu.Case<S>() {
+                @Override
+                public void noop() {
                 }
-                catch (Exception e) {
-                    raise(e);
+
+                @Override
+                public void reenter() {
+                    effects.onEnter(state);
                 }
-            }
 
-            @Override
-            public void defer(Fn.Proc<Mu.Continuation<S>> block) {
-                BlockingQueue<Mu.Action<S>> next = new ArrayBlockingQueue<>(1);
-                block.receive(next::offer);
-                async(next::take);
-            }
+                @Override
+                public void enter(S newState) {
+                    effects.onExit(state, newState);
+                    state = newState;
+                    effects.onEnter(state);
+                }
 
-            @Override
-            public void raise(Throwable e) {
-                effects.handle(e);
-            }
-        });
+                @Override
+                public void forward(Mu.Action<S> action) {
+                    action.apply(state).run(this);
+                }
+
+                @Override
+                public void async(Callable<Mu.Action<S>> block) {
+                    try {
+                        forward(block.call());
+                    }
+                    catch (Exception e) {
+                        raise(e);
+                    }
+                }
+
+                @Override
+                public void defer(Fn.Proc<Mu.Continuation<S>> block) {
+                    Deferred<Mu.Action<S>> next = new Deferred<>();
+                    block.receive(next::offer);
+                    async(next);
+                }
+
+                @Override
+                public void raise(Throwable e) {
+                    effects.handle(e);
+                }
+            });
+        }
+        catch (RuntimeException e) {
+            effects.handle(e);
+        }
     }
 
     @Override
     public <E extends Effects<S>> void exec(E effects, Mi.Action<S, E> action) {
-        action.apply(state, effects).run(new Mi.Case<S, E>() {
-            @Override
-            public void noop() {
-            }
-
-            @Override
-            public void reenter() {
-                effects.onEnter(state);
-            }
-
-            @Override
-            public void enter(S newState) {
-                effects.onExit(state, newState);
-                state = newState;
-                effects.onEnter(newState);
-            }
-
-            @Override
-            public void forward(Mi.Action<S, E> action) {
-                action.apply(state, effects).run(this);
-            }
-
-            @Override
-            public void async(Callable<Mi.Action<S, E>> block) {
-                try {
-                    forward(block.call());
+        try {
+            action.apply(state, effects).run(new Mi.Case<S, E>() {
+                @Override
+                public void noop() {
                 }
-                catch (Exception e) {
-                    raise(e);
+
+                @Override
+                public void reenter() {
+                    effects.onEnter(state);
                 }
-            }
 
-            @Override
-            public void defer(Fn.Proc<Mi.Continuation<S, E>> block) {
-                BlockingQueue<Mi.Action<S, E>> next = new ArrayBlockingQueue<>(1);
-                block.receive(next::offer);
-                async(next::take);
-            }
+                @Override
+                public void enter(S newState) {
+                    effects.onExit(state, newState);
+                    state = newState;
+                    effects.onEnter(newState);
+                }
 
-            @Override
-            public void raise(Throwable e) {
-                effects.handle(e);
-            }
-        });
+                @Override
+                public void forward(Mi.Action<S, E> action) {
+                    action.apply(state, effects).run(this);
+                }
+
+                @Override
+                public void async(Callable<Mi.Action<S, E>> block) {
+                    try {
+                        forward(block.call());
+                    }
+                    catch (Exception e) {
+                        raise(e);
+                    }
+                }
+
+                @Override
+                public void defer(Fn.Proc<Mi.Continuation<S, E>> block) {
+                    Deferred<Mi.Action<S, E>> next = new Deferred<>();
+                    block.receive(next::offer);
+                    async(next);
+                }
+
+                @Override
+                public void raise(Throwable e) {
+                    effects.handle(e);
+                }
+            });
+        }
+        catch (RuntimeException e) {
+            effects.handle(e);
+        }
     }
 
     @Override

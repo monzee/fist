@@ -80,6 +80,16 @@ public final class Mu<S> {
         return new Mu<>(sm -> sm.async(block));
     }
 
+    /**
+     * Creates a command that allows a service to do work on its own thread and
+     * send back an action to the state machine once.
+     *
+     * @param block The block that does some work and calls back to the state
+     *              machine with the result.
+     * @param <S> The state type
+     * @return a command object
+     * @see Case#defer(Fn.Proc)
+     */
     public static <S> Mu<S> defer(Fn.Proc<Continuation<S>> block) {
         return new Mu<>(sm -> sm.defer(block));
     }
@@ -95,26 +105,6 @@ public final class Mu<S> {
      */
     public static <S> Mu<S> raise(Throwable e) {
         return new Mu<>(sm -> sm.raise(e));
-    }
-
-    @Deprecated
-    public static <S> Actor<S> bind(Runner<S> runner, Effects<S> effects) {
-        return new Actor<S>() {
-            @Override
-            public void start() {
-                runner.start(effects);
-            }
-
-            @Override
-            public void stop() {
-                runner.stop();
-            }
-
-            @Override
-            public void exec(Action<S> action) {
-                runner.exec(effects, action);
-            }
-        };
     }
 
     private final Command<S> command;
@@ -403,6 +393,12 @@ public final class Mu<S> {
          */
         void async(Callable<Action<S>> block);
 
+        /**
+         * Promise/CompletableFuture-style async for services that make their
+         * results available through callbacks.
+         *
+         * @param block The task that invokes an async action
+         */
         void defer(Fn.Proc<Continuation<S>> block);
 
         /**
@@ -413,38 +409,35 @@ public final class Mu<S> {
         void raise(Throwable e);
     }
 
+    /**
+     * Argument passed to {@link #defer} calls that sends an action back to
+     * the state machine.
+     *
+     * @param <S> The state type
+     */
     public interface Continuation<S> {
+        /**
+         * @param nextAction The action to send to the state machine
+         */
         void resume(Action<S> nextAction);
 
+        /**
+         * Shortcut for {@code resume(_ -> Mu.enter(newState))}.
+         *
+         * @param newState The new state to send to the state machine
+         */
         default void ok(S newState) {
             resume(Action.pure(newState));
         }
 
+        /**
+         * Shortcut for {@code resume(_ -> Mu.raise(error))}.
+         *
+         * @param error The exception to raise
+         */
         default void fail(Exception error) {
-            resume(Action.pure(Mu.raise(error)));
+            resume(Action.pure(raise(error)));
         }
-    }
-
-    @Deprecated
-    public interface Runner<S> {
-        void start(Effects<S> effects);
-        void stop();
-        void exec(Effects<S> effects, Action<S> action);
-        <T> T project(Fn.Func<S, T> projection);
-
-        default void inspect(Fn.Proc<S> consumer) {
-            project(s -> {
-                consumer.receive(s);
-                return null;
-            });
-        }
-    }
-
-    @Deprecated
-    public interface Actor<S> {
-        void start();
-        void stop();
-        void exec(Action<S> action);
     }
 }
 

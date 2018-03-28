@@ -4,10 +4,18 @@ package ph.codeia.fist;
  * This file is a part of the fist project.
  */
 
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 
+/**
+ * Similar to {@link BlockingFst} but remembers the last command executed for
+ * testing purposes.
+ * <p>
+ * Only remembers the terminal commands NOOP, REENTER, ENTER and RAISE. All
+ * forwarding commands are followed to completion before saving the last
+ * result.
+ *
+ * @param <S> The state type.
+ */
 public class TrackingFst<S> implements Fst<S> {
     private enum Kind {NOOP, REENTER, ENTER, RAISE}
     private S state;
@@ -66,9 +74,9 @@ public class TrackingFst<S> implements Fst<S> {
 
             @Override
             public void defer(Fn.Proc<Mu.Continuation<S>> block) {
-                BlockingQueue<Mu.Action<S>> next = new ArrayBlockingQueue<>(1);
+                Deferred<Mu.Action<S>> next = new Deferred<>();
                 block.receive(next::offer);
-                async(next::take);
+                async(next);
             }
 
             @Override
@@ -118,9 +126,9 @@ public class TrackingFst<S> implements Fst<S> {
 
             @Override
             public void defer(Fn.Proc<Mi.Continuation<S, E>> block) {
-                BlockingQueue<Mi.Action<S, E>> next = new ArrayBlockingQueue<>(1);
+                Deferred<Mi.Action<S, E>> next = new Deferred<>();
                 block.receive(next::offer);
-                async(next::take);
+                async(next);
             }
 
             @Override
@@ -136,34 +144,82 @@ public class TrackingFst<S> implements Fst<S> {
         return projection.apply(state);
     }
 
+    /**
+     * Asserts that the last action returned a NOOP.
+     *
+     * @return true if the last command is a NOOP
+     */
     public boolean didNothing() {
         return lastCmd == Kind.NOOP;
     }
 
+    /**
+     * Asserts that the last action returned a NOOP and that the current state
+     * satisfies the predicate.
+     *
+     * @param assertion The predicate
+     * @return true if the last command is a NOOP and the predicate is true
+     */
     public boolean didNothing(Fn.Func<S, Boolean> assertion) {
         return didNothing() && assertion.apply(state);
     }
 
+    /**
+     * Asserts that the last action returned a REENTER.
+     *
+     * @return true if the last command is a REENTER
+     */
     public boolean didReenter() {
         return lastCmd == Kind.REENTER;
     }
 
+    /**
+     * Asserts that the last action returned a REENTER and that the current state
+     * satisfies the predicate.
+     *
+     * @param assertion The predicate
+     * @return true if the last command is a REENTER and the predicate is true
+     */
     public boolean didReenter(Fn.Func<S, Boolean> assertion) {
         return didReenter() && assertion.apply(state);
     }
 
+    /**
+     * Asserts that the last action returned an ENTER.
+     *
+     * @return true if the last command is an ENTER
+     */
     public boolean didEnter() {
         return lastCmd == Kind.ENTER;
     }
 
+    /**
+     * Asserts that the last action returned an ENTER and that the current state
+     * satisfies the predicate.
+     *
+     * @param assertion The predicate
+     * @return true if the last command is an ENTER and the predicate is true
+     */
     public boolean didEnter(Fn.Func<S, Boolean> assertion) {
         return didEnter() && assertion.apply(state);
     }
 
+    /**
+     * Asserts that the last action returned a RAISE.
+     *
+     * @return true if the last command is a RAISE
+     */
     public boolean didRaise() {
         return lastCmd == Kind.RAISE;
     }
 
+    /**
+     * Asserts that the last action returned a RAISE and that the exception
+     * satisfies the predicate.
+     *
+     * @param assertion The predicate
+     * @return true if the last command is a RAISE and the predicate is true
+     */
     public boolean didRaise(Fn.Func<Throwable, Boolean> assertion) {
         return didRaise() && assertion.apply(error);
     }

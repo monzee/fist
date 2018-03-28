@@ -13,7 +13,7 @@ import java.util.concurrent.Executors;
 import static org.junit.Assert.*;
 
 public class DeferDeadlockTest {
-    private static ExecutorService E = Executors.newSingleThreadExecutor();
+    private static final ExecutorService E = Executors.newSingleThreadExecutor();
 
     @AfterClass
     public static void tearDown() {

@@ -15,13 +15,13 @@ import java.util.concurrent.Executors;
 import static org.junit.Assert.*;
 
 public class AsyncDeadlockTest {
-    static final ExecutorService MAIN = Executors.newSingleThreadExecutor();
+    private static final ExecutorService MAIN = Executors.newSingleThreadExecutor();
 
-    static <T> Effects<T> NOOP() {
+    private static <T> Effects<T> NOOP() {
         return o -> {};
     }
 
-    static <T> Effects<T> hit(CyclicBarrier barrier) {
+    private static <T> Effects<T> hit(CyclicBarrier barrier) {
         return o -> {
             try {
                 barrier.await();
@@ -54,7 +54,7 @@ public class AsyncDeadlockTest {
         fst.inspect(n -> assertEquals(100, n.intValue()));
     }
 
-    @Test(timeout=1000)
+    @Test(timeout = 1000)
     public void async_mealy_action() throws BrokenBarrierException, InterruptedException {
         CyclicBarrier barrier = new CyclicBarrier(2);
         Fst.Binding<Integer, Effects<Integer>> fst = new UnconfinedFst<>(0).bind(hit(barrier));
@@ -65,7 +65,7 @@ public class AsyncDeadlockTest {
         fst.inspect(n -> assertEquals(1, n.intValue()));
     }
 
-    @Test(timeout=1000)
+    @Test(timeout = 1000)
     public void async_moore_action() throws BrokenBarrierException, InterruptedException {
         CyclicBarrier barrier = new CyclicBarrier(2);
         Fst.Binding<Integer, ?> fst = new UnconfinedFst<>(0).bind(hit(barrier));
@@ -76,7 +76,7 @@ public class AsyncDeadlockTest {
         fst.inspect(n -> assertEquals(1, n.intValue()));
     }
 
-    @Test(timeout=1000)
+    @Test(timeout = 1000)
     public void late_start() throws BrokenBarrierException, InterruptedException {
         CyclicBarrier barrier = new CyclicBarrier(2);
         Fst.Binding<Integer, ?> fst = new UnconfinedFst<>(0).bind(hit(barrier));
@@ -87,7 +87,7 @@ public class AsyncDeadlockTest {
         fst.inspect(n -> assertEquals(1, n.intValue()));
     }
 
-    @Test(timeout=1000)
+    @Test(timeout = 1000)
     public void async_late_start() throws BrokenBarrierException, InterruptedException {
         CyclicBarrier barrier = new CyclicBarrier(2);
         Fst.Binding<Integer, ?> fst = new UnconfinedFst<>(0).bind(hit(barrier));

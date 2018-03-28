@@ -30,7 +30,7 @@ public class AsyncLeakTest {
         return ref;
     }
 
-    @Test(timeout=1000)
+    @Test(timeout = 1000)
     public void gc_works() throws InterruptedException {
         Noop<Integer> p = new Noop<>();
         ReferenceQueue<Noop<Integer>> q = new ReferenceQueue<>();
@@ -40,7 +40,7 @@ public class AsyncLeakTest {
         assertNotNull(gc(q));
     }
 
-    @Test(timeout=1000)
+    @Test(timeout = 1000)
     public void async_moore_action_does_not_leak_the_effects_object() throws InterruptedException {
         Noop<Integer> p = new Noop<>();
         ReferenceQueue<Noop<Integer>> q = new ReferenceQueue<>();
@@ -59,7 +59,7 @@ public class AsyncLeakTest {
         done.countDown();
     }
 
-    @Test(timeout=1000)
+    @Test(timeout = 1000)
     public void async_mealy_action_does_not_leak_the_effects_object() throws InterruptedException {
         Noop<Integer> p = new Noop<>();
         ReferenceQueue<Noop<Integer>> q = new ReferenceQueue<>();

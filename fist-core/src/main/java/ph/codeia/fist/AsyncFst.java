@@ -7,13 +7,13 @@ package ph.codeia.fist;
 import java.lang.ref.WeakReference;
 import java.util.Map;
 import java.util.WeakHashMap;
-import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
@@ -42,6 +42,8 @@ public abstract class AsyncFst<S> implements Fst<S> {
 
         /**
          * Sets the maximum time to wait for async actions to complete.
+         * <p>
+         * Default timeout is 60 seconds.
          *
          * @param millis The timeout in milliseconds
          * @return this
@@ -53,6 +55,8 @@ public abstract class AsyncFst<S> implements Fst<S> {
 
         /**
          * Sets the maximum time to wait for async actions to complete.
+         * <p>
+         * Default timeout is 60 seconds.
          *
          * @param duration The timeout duration in whatever unit
          * @param unit The time unit
@@ -64,9 +68,9 @@ public abstract class AsyncFst<S> implements Fst<S> {
         }
 
         /**
-         * Sets the executor service for async actions.
+         * Sets the executor for async actions.
          *
-         * @param worker The executor service to submit async actions to
+         * @param worker The executor to submit async actions to
          * @return this
          */
         public Builder workOn(Executor worker) {
@@ -75,9 +79,12 @@ public abstract class AsyncFst<S> implements Fst<S> {
         }
 
         /**
-         * Sets the executor service for awaiting the result of async actions.
+         * Sets the executor for awaiting the result of async actions.
+         * <p>
+         * Setting this to something other than a single thread executor might
+         * cause some async results to be lost between start-stop phases.
          *
-         * @param joiner The executor service to submit await actions to
+         * @param joiner The executor to submit await actions to
          * @return this
          */
         public Builder joinOn(Executor joiner) {
@@ -94,7 +101,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
     private final Executor joiner;
     private final Executor worker;
     private final BlockingQueue<Mu.Action<S>> deferred = new LinkedBlockingQueue<>();
-    private final Map<Class<?>, BlockingQueue<Mi.Action>> deferredByClass = new WeakHashMap<>();
+    private final Map<Class<? extends Effects>, BlockingQueue<Mi.Action>> deferredByClass = new WeakHashMap<>();
     private final long timeout;
     private volatile boolean isRunning;
     private volatile S state;
@@ -129,15 +136,21 @@ public abstract class AsyncFst<S> implements Fst<S> {
         if (isRunning) return;
         isRunning = true;
         effects.onEnter(state);  // TODO: force main thread?
+        WeakReference<Effects<S>> weakFx = new WeakReference<>(effects);
+        Class<? extends Effects> key = effects.getClass();
         joiner.execute(() -> {
             for (Mu.Action<S> action; null != (action = deferred.poll());) {
-                exec(effects, action);
+                Effects<S> fx = weakFx.get();
+                if (fx == null) return;
+                exec(fx, action);
             }
-            BlockingQueue<Mi.Action> deferredMealy = deferredByClass.get(effects.getClass());
+            BlockingQueue<Mi.Action> deferredMealy = deferredByClass.get(key);
             if (deferredMealy != null) {
                 for (Mi.Action action; null != (action = deferredMealy.poll());) {
+                    Effects<S> fx = weakFx.get();
+                    if (fx == null) break;
                     //noinspection unchecked
-                    exec(effects, action);
+                    exec(fx, action);
                 }
             }
         });
@@ -183,10 +196,10 @@ public abstract class AsyncFst<S> implements Fst<S> {
                         AtomicBoolean timedOut = new AtomicBoolean(false);
                         //noinspection UnnecessaryLocalVariable
                         BlockingQueue<Mu.Action<S>> queue = deferred;
-                        // local copy to prevent capture of AsyncFst.this which i
-                        // believe also causes Mu.Case.this to be captured which
-                        // itself captures Effects, causing it to held uselessly
-                        // during the async call
+                        // local copy to prevent capture of AsyncFst.this which
+                        // i believe also causes Mu.Case.this to be captured
+                        // which itself captures Effects, leaking it during the
+                        // async call
                         worker.execute(() -> {
                             Mu.Action<S> action;
                             try {
@@ -206,9 +219,9 @@ public abstract class AsyncFst<S> implements Fst<S> {
 
                     @Override
                     public void defer(Fn.Proc<Mu.Continuation<S>> block) {
-                        BlockingQueue<Mu.Action<S>> next = new ArrayBlockingQueue<>(1);
+                        Deferred<Mu.Action<S>> next = new Deferred<>();
                         block.receive(next::offer);
-                        async(next::take);
+                        async(next);
                     }
 
                     @Override
@@ -277,9 +290,9 @@ public abstract class AsyncFst<S> implements Fst<S> {
 
                     @Override
                     public void defer(Fn.Proc<Mi.Continuation<S, E>> block) {
-                        BlockingQueue<Mi.Action<S, E>> next = new ArrayBlockingQueue<>(1);
+                        Deferred<Mi.Action<S, E>> next = new Deferred<>();
                         block.receive(next::offer);
-                        async(next::take);
+                        async(next);
                     }
 
                     @Override
@@ -299,22 +312,41 @@ public abstract class AsyncFst<S> implements Fst<S> {
         return projection.apply(state);
     }
 
+    // TODO: timeout is a lie; it is only meaningful when using a serial work executor
+    // the timeout for a single task can be indefinitely extended by executing additional
+    // tasks that finish well within the timeout while the previous task is still running.
+    // imagine we have an executor that can execute 2 tasks simultaneously (results may
+    // arrive in any order) and a single-threaded joiner:
+    // - a very slow task that is supposed to timeout is enqueued
+    // - just before it's about to timeout, a second task is enqueued and it finishes instantly
+    // - the joiner will see the result enqueued by the second task and processed accordingly
+    // - a new wait block will be executed by the joiner which is meant to wait for the second
+    //   task, but ends up waiting for the first task which is still running. the timeout
+    //   period for the first task is effectively doubled.
+    // - rinse and repeat. the waiting time for the first task will be increased again by
+    //   the same amount.
     private void join(WeakReference<Effects<S>> weakFx, AtomicBoolean timedOut) {
         joiner.execute(() -> {
             try {
-                Mu.Action<S> action = deferred.poll(timeout, TimeUnit.MILLISECONDS);
-                synchronized (timedOut) {
-                    // query one more time. it's possible that the other thread
-                    // acquired the lock first and enqueued an action just as
-                    // the timeout expires
-                    if (action == null) {
+                Mu.Action<S> action;
+                if (timeout <= 0) {
+                    action = deferred.take();
+                }
+                else {
+                    action = deferred.poll(timeout, TimeUnit.MILLISECONDS);
+                    if (action == null) synchronized (timedOut) {
+                        // query one more time. it's possible for the other thread
+                        // to acquire the lock first and enqueue an action just as
+                        // the timeout expires
                         action = deferred.poll();
-                    }
-                    // still nothing; meaning we got the lock first. tell the
-                    // other thread not to enqueue its action
-                    if (action == null) {
-                        timedOut.set(true);
-                        return;
+                        if (action == null) {
+                            // still nothing; meaning we got the lock first. tell
+                            // the other thread not to enqueue its action
+                            timedOut.set(true);
+                            action = Mu.Action.pure(Mu.raise(
+                                    new TimeoutException(timeoutMsg(timeout))
+                            ));
+                        }
                     }
                 }
                 Effects<S> fx = weakFx.get();
@@ -337,14 +369,20 @@ public abstract class AsyncFst<S> implements Fst<S> {
     ) {
         joiner.execute(() -> {
             try {
-                Mi.Action action = queue.poll(timeout, TimeUnit.MILLISECONDS);
-                synchronized (timedOut) {
-                    if (action == null) {
+                Mi.Action action;
+                if (timeout <= 0) {
+                    action = queue.take();
+                }
+                else {
+                    action = queue.poll(timeout, TimeUnit.MILLISECONDS);
+                    if (action == null) synchronized (timedOut) {
                         action = queue.poll();
-                    }
-                    if (action == null) {
-                        timedOut.set(true);
-                        return;
+                        if (action == null) {
+                            timedOut.set(true);
+                            action = Mi.Action.pure(Mi.raise(
+                                    new TimeoutException(timeoutMsg(timeout))
+                            ));
+                        }
                     }
                 }
                 Effects<S> fx = weakFx.get();
@@ -361,13 +399,18 @@ public abstract class AsyncFst<S> implements Fst<S> {
         });
     }
 
-    private BlockingQueue<Mi.Action> getOrMakeQueueFor(Class<?> key) {
-        BlockingQueue<Mi.Action> value = deferredByClass.get(key);
-        //noinspection Java8MapApi
-        if (value == null) {
-            value = new LinkedBlockingQueue<>();
-            deferredByClass.put(key, value);
+    private BlockingQueue<Mi.Action> getOrMakeQueueFor(Class<? extends Effects> key) {
+        synchronized (deferredByClass) {
+            BlockingQueue<Mi.Action> value = deferredByClass.get(key);
+            if (value == null) {
+                value = new LinkedBlockingQueue<>();
+                deferredByClass.put(key, value);
+            }
+            return value;
         }
-        return value;
+    }
+
+    private static String timeoutMsg(long millis) {
+        return "Task was unable to finish within " + millis + "ms";
     }
 }

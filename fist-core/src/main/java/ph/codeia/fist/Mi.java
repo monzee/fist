@@ -15,6 +15,7 @@ import java.util.concurrent.Callable;
  *     data Mi s e = Noop | Reenter | Enter s | Raise Throwable
  *                 | Forward (s -&gt; e -&gt; Mi s e)
  *                 | Async (() -&gt; s -&gt; e -&gt; Mi s e)
+ *                 | Defer (((s -&gt; e -&gt; Mi s e) -&gt; ()) -&gt; ())
  * </pre>
  * This class is also a container/namespace for:
  * <ul>
@@ -94,6 +95,17 @@ public final class Mi<S, E> {
         return new Mi<>(on -> on.async(block));
     }
 
+    /**
+     * Creates a command that allows a service to do work on its own thread and
+     * send back an action to the state machine once.
+     *
+     * @param block The block that does some work and calls back to the state
+     *              machine with the result.
+     * @param <S> The state type
+     * @param <E> The receiver type
+     * @return a command object
+     * @see Case#defer(Fn.Proc)
+     */
     public static <S, E> Mi<S, E> defer(Fn.Proc<Continuation<S, E>> block) {
         return new Mi<>(on -> on.defer(block));
     }
@@ -110,26 +122,6 @@ public final class Mi<S, E> {
      */
     public static <S, E> Mi<S, E> raise(Throwable e) {
         return new Mi<>(on -> on.raise(e));
-    }
-
-    @Deprecated
-    public static <S, E extends Effects<S>> Actor<S, E> bind(Runner<S, E> runner, E effects) {
-        return new Actor<S, E>() {
-            @Override
-            public void start() {
-                runner.start(effects);
-            }
-
-            @Override
-            public void stop() {
-                runner.stop();
-            }
-
-            @Override
-            public void exec(Action<S, E> action) {
-                runner.exec(effects, action);
-            }
-        };
     }
 
     private final Command<S, E> command;
@@ -453,6 +445,12 @@ public final class Mi<S, E> {
          */
         void async(Callable<Action<S, E>> block);
 
+        /**
+         * Promise/CompletableFuture-style async for services that make their
+         * results available through callbacks.
+         *
+         * @param block The task that invokes an async action
+         */
         void defer(Fn.Proc<Continuation<S, E>> block);
 
         /**
@@ -463,37 +461,35 @@ public final class Mi<S, E> {
         void raise(Throwable e);
     }
 
+    /**
+     * Argument passed to {@link #defer} calls that sends an action back to
+     * the state machine.
+     *
+     * @param <S> The state type
+     * @param <E> The receiver type
+     */
     public interface Continuation<S, E> {
+        /**
+         * @param nextAction The action to send to the state machine
+         */
         void resume(Action<S, E> nextAction);
 
+        /**
+         * Shortcut for {@code resume((_, _) -> Mi.enter(newState))}.
+         *
+         * @param newState The new state to send to the state machine
+         */
         default void ok(S newState) {
             resume(Action.pure(newState));
         }
 
+        /**
+         * Shortcut for {@code resume((_, _) -> Mi.raise(error))}.
+         *
+         * @param error The exception to raise
+         */
         default void fail(Exception error) {
-            resume(Action.pure(Mi.raise(error)));
+            resume(Action.pure(raise(error)));
         }
-    }
-
-    @Deprecated
-    public interface Runner<S, E extends Effects<S>> {
-        void start(E effects);
-        void stop();
-        void exec(E effects, Action<S, E> action);
-        <T> T project(Fn.Func<S, T> projection);
-
-        default void inspect(Fn.Proc<S> consumer) {
-            project(s -> {
-                consumer.receive(s);
-                return null;
-            });
-        }
-    }
-
-    @Deprecated
-    public interface Actor<S, E extends Effects<S>> {
-        void start();
-        void stop();
-        void exec(Action<S, E> action);
     }
 }
