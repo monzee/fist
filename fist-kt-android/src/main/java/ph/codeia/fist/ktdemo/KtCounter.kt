@@ -27,10 +27,10 @@ class KtCounter : Fragment() {
     }
 
     override fun onCreateView(
-        inflater: LayoutInflater?,
+        inflater: LayoutInflater,
         container: ViewGroup?,
         savedInstanceState: Bundle?
-    ) = inflater?.inflate(R.layout.fragment_counter, container, false)?.also {
+    ) = inflater.inflate(R.layout.fragment_counter, container, false)?.also {
         count = it.findViewById(R.id.counter)
         it.findViewById<View>(R.id.plus).setOnClickListener { ui += succ }
         it.findViewById<View>(R.id.minus).setOnClickListener { ui += pred }

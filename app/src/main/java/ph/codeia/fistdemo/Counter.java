@@ -6,6 +6,7 @@ package ph.codeia.fistdemo;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
 import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
@@ -17,6 +18,7 @@ import ph.codeia.fist.BlockingFst;
 import ph.codeia.fist.Fst;
 import ph.codeia.fist.LifecycleBinder;
 import ph.codeia.fist.Mu;
+import ph.codeia.fist.R;
 
 public class Counter extends Fragment {
     private Fst.Binding<Integer, ?> ui;
@@ -35,7 +37,9 @@ public class Counter extends Fragment {
 
     @Override
     public View onCreateView(
-            LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState
+            @NonNull LayoutInflater inflater,
+            ViewGroup container,
+            Bundle savedInstanceState
     ) {
         View root = inflater.inflate(R.layout.fragment_counter, container, false);
         count = root.findViewById(R.id.counter);

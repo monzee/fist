@@ -26,6 +26,86 @@ public class TrackingFst<S> implements Fst<S> {
         state = initialState;
     }
 
+    /**
+     * Asserts that the last action returned a NOOP.
+     *
+     * @return true if the last command is a NOOP
+     */
+    public boolean didNothing() {
+        return lastCmd == Kind.NOOP;
+    }
+
+    /**
+     * Asserts that the last action returned a NOOP and that the current state
+     * satisfies the predicate.
+     *
+     * @param assertion The predicate
+     * @return true if the last command is a NOOP and the predicate is true
+     */
+    public boolean didNothing(Fn.Func<S, Boolean> assertion) {
+        return didNothing() && assertion.apply(state);
+    }
+
+    /**
+     * Asserts that the last action returned a REENTER.
+     *
+     * @return true if the last command is a REENTER
+     */
+    public boolean didReenter() {
+        return lastCmd == Kind.REENTER;
+    }
+
+    /**
+     * Asserts that the last action returned a REENTER and that the current state
+     * satisfies the predicate.
+     *
+     * @param assertion The predicate
+     * @return true if the last command is a REENTER and the predicate is true
+     */
+    public boolean didReenter(Fn.Func<S, Boolean> assertion) {
+        return didReenter() && assertion.apply(state);
+    }
+
+    /**
+     * Asserts that the last action returned an ENTER.
+     *
+     * @return true if the last command is an ENTER
+     */
+    public boolean didEnter() {
+        return lastCmd == Kind.ENTER;
+    }
+
+    /**
+     * Asserts that the last action returned an ENTER and that the current state
+     * satisfies the predicate.
+     *
+     * @param assertion The predicate
+     * @return true if the last command is an ENTER and the predicate is true
+     */
+    public boolean didEnter(Fn.Func<S, Boolean> assertion) {
+        return didEnter() && assertion.apply(state);
+    }
+
+    /**
+     * Asserts that the last action returned a RAISE.
+     *
+     * @return true if the last command is a RAISE
+     */
+    public boolean didRaise() {
+        return lastCmd == Kind.RAISE;
+    }
+
+    /**
+     * Asserts that the last action returned a RAISE and that the exception
+     * satisfies the predicate.
+     *
+     * @param assertion The predicate
+     * @return true if the last command is a RAISE and the predicate is true
+     */
+    public boolean didRaise(Fn.Func<Throwable, Boolean> assertion) {
+        return didRaise() && assertion.apply(error);
+    }
+
     @Override
     public void start(Effects<S> effects) {
         effects.onEnter(state);
@@ -142,85 +222,5 @@ public class TrackingFst<S> implements Fst<S> {
     @Override
     public <T> T project(Fn.Func<S, T> projection) {
         return projection.apply(state);
-    }
-
-    /**
-     * Asserts that the last action returned a NOOP.
-     *
-     * @return true if the last command is a NOOP
-     */
-    public boolean didNothing() {
-        return lastCmd == Kind.NOOP;
-    }
-
-    /**
-     * Asserts that the last action returned a NOOP and that the current state
-     * satisfies the predicate.
-     *
-     * @param assertion The predicate
-     * @return true if the last command is a NOOP and the predicate is true
-     */
-    public boolean didNothing(Fn.Func<S, Boolean> assertion) {
-        return didNothing() && assertion.apply(state);
-    }
-
-    /**
-     * Asserts that the last action returned a REENTER.
-     *
-     * @return true if the last command is a REENTER
-     */
-    public boolean didReenter() {
-        return lastCmd == Kind.REENTER;
-    }
-
-    /**
-     * Asserts that the last action returned a REENTER and that the current state
-     * satisfies the predicate.
-     *
-     * @param assertion The predicate
-     * @return true if the last command is a REENTER and the predicate is true
-     */
-    public boolean didReenter(Fn.Func<S, Boolean> assertion) {
-        return didReenter() && assertion.apply(state);
-    }
-
-    /**
-     * Asserts that the last action returned an ENTER.
-     *
-     * @return true if the last command is an ENTER
-     */
-    public boolean didEnter() {
-        return lastCmd == Kind.ENTER;
-    }
-
-    /**
-     * Asserts that the last action returned an ENTER and that the current state
-     * satisfies the predicate.
-     *
-     * @param assertion The predicate
-     * @return true if the last command is an ENTER and the predicate is true
-     */
-    public boolean didEnter(Fn.Func<S, Boolean> assertion) {
-        return didEnter() && assertion.apply(state);
-    }
-
-    /**
-     * Asserts that the last action returned a RAISE.
-     *
-     * @return true if the last command is a RAISE
-     */
-    public boolean didRaise() {
-        return lastCmd == Kind.RAISE;
-    }
-
-    /**
-     * Asserts that the last action returned a RAISE and that the exception
-     * satisfies the predicate.
-     *
-     * @param assertion The predicate
-     * @return true if the last command is a RAISE and the predicate is true
-     */
-    public boolean didRaise(Fn.Func<Throwable, Boolean> assertion) {
-        return didRaise() && assertion.apply(error);
     }
 }

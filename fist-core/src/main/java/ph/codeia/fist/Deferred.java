@@ -16,28 +16,26 @@ public class Deferred<T> implements Callable<T> {
 
     public void offer(T t) {
         lock.lock();
-        try {
-            value = t;
-            hasValue.signal();
-        }
-        finally {
-            lock.unlock();
-        }
+        value = t;
+        hasValue.signal();
+        lock.unlock();
     }
 
     @Override
     public T call() throws InterruptedException {
-        lock.lockInterruptibly();
-        try {
-            while (value == null) {
-                hasValue.await();
+        if (value == null) {
+            lock.lockInterruptibly();
+            try {
+                while (value == null) {
+                    hasValue.await();
+                }
             }
-            T t = value;
-            value = null;
-            return t;
+            finally {
+                lock.unlock();
+            }
         }
-        finally {
-            lock.unlock();
-        }
+        T t = value;
+        value = null;
+        return t;
     }
 }

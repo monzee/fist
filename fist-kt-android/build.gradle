@@ -29,6 +29,15 @@ dependencies {
 kotlin.experimental.coroutines 'enable'
 
 publishing {
+    repositories.maven {
+        name 'bintray'
+        url 'https://api.bintray.com/maven/monzee/jvm/fist-kt-android/'
+        credentials {
+            username = BINTRAY_USER
+            password = BINTRAY_API_KEY
+        }
+    }
+
     android.libraryVariants.matching { it.buildType.name == 'release' }.all {
         def stem = name.capitalize()
         def hardDeps = variantData.variantDependency.apiElements.allDependencies

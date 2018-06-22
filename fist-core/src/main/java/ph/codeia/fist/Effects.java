@@ -23,13 +23,17 @@ public interface Effects<S> {
     void onEnter(S s);
 
     /**
-     * Called only when the machine executes an ENTER command before {@code
-     * #onEnter(S)} is called. Default implementation does nothing.
+     * Called only when the machine executes an ENTER command. Default
+     * implementation does nothing.
+     * <p>
+     * This is always called before {@link #onEnter(Object)} except when the
+     * machine has just been started or when the machine executes a REENTER.
      * <p>
      * This is meant for producing output during a transition that is not
-     * supposed to be a part of the state, specifically logging, user
-     * notification or any other side effect. Useful for {@link Mu} actions;
-     * I believe this is inferior to direct calls used in {@link Mi} actions.
+     * supposed to be a part of the state, e.g. logging, user notification or
+     * any other side effect. Useful for {@link Mu} actions; I believe this is
+     * inferior to direct calls used in {@link Mi} actions but can still be used
+     * with them too if desired.
      *
      * @param oldState The previous state being replaced
      * @param newState The new state
@@ -44,8 +48,6 @@ public interface Effects<S> {
      * @param e The error
      */
     default void handle(Throwable e) {
-        throw e instanceof RuntimeException ?
-                (RuntimeException) e :
-                new RuntimeException(e);
+        throw e instanceof RuntimeException ?  (RuntimeException) e : new RuntimeException(e);
     }
 }
