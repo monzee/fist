@@ -34,10 +34,9 @@ public abstract class AsyncFst<S> implements Fst<S> {
      */
     public static class Builder implements Fst.Builder {
         private static final Executor DEFAULT_WORKER = Executors.newSingleThreadExecutor();
-        private static final Executor DEFAULT_RECEIVER = Executors.newSingleThreadExecutor();
 
         private Executor worker = DEFAULT_WORKER;
-        private Executor receiver = DEFAULT_RECEIVER;
+        private Executor receiver = Executors.newSingleThreadExecutor();
         private long timeoutMillis = 60_000;
 
         /**
@@ -312,11 +311,6 @@ public abstract class AsyncFst<S> implements Fst<S> {
     @Override
     public <T> T project(Fn.Func<S, T> projection) {
         return projection.apply(state);
-    }
-
-    @Override
-    public void inspect(Fn.Proc<S> proc) {
-        proc.receive(state);
     }
 
     private void addToBacklog(Job<S> next) {
