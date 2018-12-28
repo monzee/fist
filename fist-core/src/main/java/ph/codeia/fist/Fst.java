@@ -123,6 +123,48 @@ public interface Fst<S> {
     }
 
     /**
+     * Associates an indirect receiver with a state machine.
+     * <p>
+     * Same as {@link #bind(Effects)} but with an additional level of
+     * indirection which is needed e.g. in Android where the state machine
+     * and the receiver have different lifecycles and the receiver might
+     * not be available yet during binding time or might change throughout
+     * the life of the state machine.
+     *
+     * @param effects A function that produces the receiver
+     * @param <E> The receiver type
+     * @return a state machine with an associated receiver
+     */
+    default <E extends Effects<S>> Binding<S, E> bind(Fn.Supplier<E> effects) {
+        return new Binding<S, E>() {
+            @Override
+            public void start() {
+                Fst.this.start(effects.get());
+            }
+
+            @Override
+            public void stop() {
+                Fst.this.stop();
+            }
+
+            @Override
+            public void exec(Mu.Action<S> action) {
+                Fst.this.exec(effects.get(), action);
+            }
+
+            @Override
+            public void exec(Mi.Action<S, E> action) {
+                Fst.this.exec(effects.get(), action);
+            }
+
+            @Override
+            public <T> T project(Fn.Func<S, T> projection) {
+                return Fst.this.project(projection);
+            }
+        };
+    }
+
+    /**
      * A machine with a bound receiver. See {@link Fst#bind(Effects)}.
      *
      * @param <S> The state type

@@ -99,7 +99,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
 
     private final AtomicInteger pendingCount = new AtomicInteger(0);
     private final BlockingDeque<Job<S>> backlog = new LinkedBlockingDeque<>();
-    private final Job<S> poisonPill = Job.Case::stop;
+    private final Job<S> poisonPill = Job.Case::kill;
     private final Executor worker;
     private final Executor receiver;
     private final long timeout;
@@ -141,13 +141,13 @@ public abstract class AsyncFst<S> implements Fst<S> {
         effects.onEnter(state);
         WeakReference<Effects<S>> weakEffects = new WeakReference<>(effects);
         receiver.execute(new Job.Case<S>() {
-            boolean stop = false;
+            boolean alive = true;
             Job<S> next;
 
             @Override
             public void run() {
                 try {
-                    while (!stop) {
+                    while (alive) {
                         next = backlog.takeFirst();
                         next.match(this);
                     }
@@ -160,7 +160,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
             public void moore(Mu.Action<S> action) {
                 Effects<S> fx = weakEffects.get();
                 if (fx == null) {
-                    stop = true;
+                    alive = false;
                     backlog.offerFirst(next);
                 }
                 else {
@@ -172,7 +172,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
             public void mealy(Class<? extends Effects> target, Mi.Action action) {
                 Effects<S> fx = weakEffects.get();
                 if (fx == null) {
-                    stop = true;
+                    alive = false;
                     backlog.offerFirst(next);
                 }
                 else if (target.isAssignableFrom(fx.getClass())) {
@@ -183,8 +183,8 @@ public abstract class AsyncFst<S> implements Fst<S> {
             }
 
             @Override
-            public void stop() {
-                stop = true;
+            public void kill() {
+                alive = false;
             }
         });
     }
@@ -420,7 +420,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
         interface Case<S> extends Runnable {
             void moore(Mu.Action<S> action);
             void mealy(Class<? extends Effects> target, Mi.Action action);
-            void stop();
+            void kill();
         }
     }
 }

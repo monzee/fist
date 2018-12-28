@@ -5,8 +5,6 @@ package ph.codeia.fist.sample;
  */
 
 import android.os.Bundle;
-import android.support.annotation.Nullable;
-import android.support.v4.app.Fragment;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -17,9 +15,11 @@ import android.widget.Toast;
 import java.util.Random;
 import java.util.concurrent.TimeoutException;
 
-import ph.codeia.fist.LifecycleBinder;
+import androidx.annotation.Nullable;
+import androidx.fragment.app.Fragment;
 import ph.codeia.fist.AndroidFst;
 import ph.codeia.fist.Fst;
+import ph.codeia.fist.LifecycleBinder;
 import ph.codeia.fist.R;
 import ph.codeia.fist.content.Loadable;
 import ph.codeia.fist.content.Loader;

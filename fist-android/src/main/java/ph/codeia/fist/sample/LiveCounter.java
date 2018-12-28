@@ -6,14 +6,14 @@ package ph.codeia.fist.sample;
 
 import android.graphics.Color;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
-import android.support.v7.app.AppCompatActivity;
 import android.widget.Button;
 import android.widget.TextView;
 
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 import ph.codeia.fist.AndroidMachine;
-import ph.codeia.fist.deprecated.Fst;
 import ph.codeia.fist.R;
+import ph.codeia.fist.deprecated.Fst;
 
 public class LiveCounter extends AppCompatActivity implements Periodic.View {
     private static class Scope {

@@ -6,19 +6,19 @@ package ph.codeia.fist.sample;
 
 import android.annotation.SuppressLint;
 import android.os.Bundle;
-import android.support.annotation.Nullable;
-import android.support.v7.app.AppCompatActivity;
 import android.widget.EditText;
 import android.widget.TextView;
 
 import java.util.EnumSet;
 import java.util.Random;
 
-import ph.codeia.fist.LifecycleBinder;
+import androidx.annotation.Nullable;
+import androidx.appcompat.app.AppCompatActivity;
 import ph.codeia.fist.AndroidFst;
 import ph.codeia.fist.Fst;
-import ph.codeia.fist.R;
+import ph.codeia.fist.LifecycleBinder;
 import ph.codeia.fist.Mu;
+import ph.codeia.fist.R;
 
 public class GuessTheNumber extends AppCompatActivity {
 

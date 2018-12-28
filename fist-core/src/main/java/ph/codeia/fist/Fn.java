@@ -36,4 +36,13 @@ public interface Fn {
     interface Func<S, T> {
         T apply(S s);
     }
+
+    /**
+     * Produces a value.
+     *
+     * @param <T> The type of the value produced
+     */
+    interface Supplier<T> {
+        T get();
+    }
 }
