@@ -19,6 +19,13 @@ inline fun <S> action(
 }
 
 
+inline fun <S> pure(
+    crossinline block: (S) -> S
+): Mu.Action<S> = Mu.Action {
+    Mu.enter(block(it))
+}
+
+
 inline operator fun <S, T> Fst<S>.invoke(
     crossinline block: (S) -> T
 ): T = project { block(it) }
@@ -36,6 +43,20 @@ operator fun <S, E : Effects<S>> Fst.Binding<S, E>.plusAssign(action: Mi.Action<
 
 operator fun <S> Fst.Binding<S, *>.plusAssign(action: Mu.Action<S>) {
     exec(action)
+}
+
+
+inline operator fun <S> Fst.Binding<S, *>.plusAssign(
+    crossinline block: (S) -> S
+) {
+    exec(pure(block))
+}
+
+
+inline operator fun <S, E : Effects<S>> Fst.Binding<S, E>.plusAssign(
+    crossinline block: (S, E) -> S
+) {
+    exec { state, effects -> Mi.enter(block(state, effects)) }
 }
 
 

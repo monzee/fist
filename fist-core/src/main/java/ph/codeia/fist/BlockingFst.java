@@ -52,7 +52,6 @@ public class BlockingFst<S> implements Fst<S> {
 
                 @Override
                 public void enter(S newState) {
-                    effects.onExit(state, newState);
                     state = newState;
                     effects.onEnter(state);
                 }
@@ -105,7 +104,6 @@ public class BlockingFst<S> implements Fst<S> {
 
                 @Override
                 public void enter(S newState) {
-                    effects.onExit(state, newState);
                     state = newState;
                     effects.onEnter(newState);
                 }

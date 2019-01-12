@@ -56,6 +56,16 @@ public final class Mi<S, E> {
         return new Mi<>(Case::reenter);
     }
 
+    public static <S, E> Mi<S, E> reenterThen(Callable<Action<S, E>> block) {
+        Mi<S, E> start = reenter();
+        return start.then(async(block));
+    }
+
+    public static <S, E> Mi<S, E> reenterThen(Fn.Proc<Continuation<S, E>> block) {
+        Mi<S, E> start = reenter();
+        return start.then(defer(block));
+    }
+
     /**
      * Creates an action that emits a new state.
      *
@@ -67,6 +77,16 @@ public final class Mi<S, E> {
      */
     public static <S, E> Mi<S, E> enter(S newState) {
         return new Mi<>(on -> on.enter(newState));
+    }
+
+    public static <S, E> Mi<S, E> enterThen(S newState, Callable<Action<S, E>> block) {
+        Mi<S, E> start = enter(newState);
+        return start.then(async(block));
+    }
+
+    public static <S, E> Mi<S, E> enterThen(S newState, Fn.Proc<Continuation<S, E>> block) {
+        Mi<S, E> start = enter(newState);
+        return start.then(defer(block));
     }
 
     /**

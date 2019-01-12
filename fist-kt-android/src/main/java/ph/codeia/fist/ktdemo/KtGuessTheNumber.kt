@@ -118,7 +118,7 @@ private interface Ui : Effects<GuessingGame> {
 
 private fun newGame(maxTries: Int) = action<GuessingGame, Ui> { _, ui ->
     ui.tell("Starting a new game in 10 seconds.")
-    async {
+    awaitAction {
         Thread.sleep(10_000)
         action { _, futureUi ->
             futureUi.prepareForInput()

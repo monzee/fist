@@ -57,6 +57,32 @@ public final class Mu<S> {
     }
 
     /**
+     * Creates a command that emits a sequence of states.
+     * <p>
+     * Only the last state "sticks", i.e. visible to the next action.
+     * Technically, they all stick but they are immediately replaced by the
+     * next state in the sequence.
+     * <p>
+     * This is used for "side states", i.e. states that don't really
+     * represent a state that the system might be in at some point in time
+     * but are just there to produce outputs. Examples are logging and
+     * toasts/snackbars.
+     *
+     * @param states The sequence of states to enter
+     * @param <S> The state type
+     * @return a command object
+     * @see #enter(Object)
+     */
+    @SafeVarargs
+    public static <S> Mu<S> enterMany(S... states) {
+        Mu<S> acc = noop();
+        for (S state : states) if (state != null) {
+            acc = acc.then(enter(state));
+        }
+        return acc;
+    }
+
+    /**
      * Creates a command that runs an action that emits another command.
      *
      * @param action The action to execute

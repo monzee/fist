@@ -24,6 +24,10 @@ public class LifecycleBinder {
         return wrap(fst.bind(effects));
     }
 
+    public <S, E extends Effects<S>> Fst.Binding<S, E> bind(Fst<S> fst, Fn.Supplier<E> effects) {
+        return wrap(fst.bind(effects));
+    }
+
     public <S, E extends Effects<S>> Fst.Binding<S, E> wrap(Fst.Binding<S, E> inner) {
         LifecycleBinding<S, E> decorator = new LifecycleBinding<>(inner);
         lifecycle.addObserver(decorator);

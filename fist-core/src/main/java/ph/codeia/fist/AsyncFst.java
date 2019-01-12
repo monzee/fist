@@ -220,7 +220,6 @@ public abstract class AsyncFst<S> implements Fst<S> {
 
                     @Override
                     public void enter(S newState) {
-                        effects.onExit(state, newState);
                         state = newState;
                         effects.onEnter(newState);
                     }
@@ -314,6 +313,7 @@ public abstract class AsyncFst<S> implements Fst<S> {
     }
 
     private void addToBacklog(Job<S> next) {
+        // TODO: synchronize?
         if (pendingCount.get() > 0) {
             backlog.offerLast(next);
         }
@@ -382,13 +382,13 @@ public abstract class AsyncFst<S> implements Fst<S> {
 
         void execOrSend(Mu.Action<S> action) {
             Effects<S> fx = weakEffects.get();
-            int remaining = pendingCount.decrementAndGet();
             if (fx != null && isRunning) {
                 exec(fx, action);
             }
             else {
                 backlog.offerLast(e -> e.moore(action));
-                if (remaining == 0) {
+                // TODO: synchronize?
+                if (pendingCount.decrementAndGet() == 0) {
                     backlog.offerLast(poisonPill);
                 }
             }
@@ -396,13 +396,13 @@ public abstract class AsyncFst<S> implements Fst<S> {
 
         void execOrSend(Mi.Action<S, E> action) {
             E fx = weakEffects.get();
-            int remaining = pendingCount.decrementAndGet();
             if (fx != null && isRunning) {
                 exec(fx, action);
             }
             else {
                 backlog.offerLast(e -> e.mealy(fxClass, action));
-                if (remaining == 0) {
+                // TODO: synchronize?
+                if (pendingCount.decrementAndGet() == 0) {
                     backlog.offerLast(poisonPill);
                 }
             }

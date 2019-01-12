@@ -17,11 +17,22 @@ class MealyScope<S, E : Effects<S>> {
     val forward: (Mi.Action<S, E>) -> Mi<S, E> = { Mi.forward(it) }
     val raise: (Throwable) -> Mi<S, E> = { Mi.raise(it) }
 
-    inline fun async(crossinline block: () -> Mi.Action<S, E>): Mi<S, E> = Mi.async {
+    inline fun await(
+        crossinline block: () -> Mi<S, E>
+    ): Mi<S, E> = Mi.async {
+        val result = block()
+        Mi.Action<S, E> { _, _ -> result }
+    }
+
+    inline fun awaitAction(
+        crossinline block: () -> Mi.Action<S, E>
+    ): Mi<S, E> = Mi.async {
         block()
     }
 
-    inline fun defer(crossinline block: Mi.Continuation<S, E>.() -> Unit): Mi<S, E> = Mi.defer {
+    inline fun defer(
+        crossinline block: Mi.Continuation<S, E>.() -> Unit
+    ): Mi<S, E> = Mi.defer {
         block(it)
     }
 
@@ -39,11 +50,24 @@ class MooreScope<S> {
     val forward: (Mu.Action<S>) -> Mu<S> = { Mu.forward(it) }
     val raise: (Throwable) -> Mu<S> = { Mu.raise(it) }
 
-    inline fun async(crossinline block: () -> Mu.Action<S>): Mu<S> = Mu.async {
+    fun enterMany(vararg states: S?): Mu<S> = Mu.enterMany(*states)
+
+    inline fun await(
+        crossinline block: () -> Mu<S>
+    ): Mu<S> = Mu.async {
+        val result = block()
+        Mu.Action<S> { result }
+    }
+
+    inline fun awaitAction(
+        crossinline block: () -> Mu.Action<S>
+    ): Mu<S> = Mu.async {
         block()
     }
 
-    inline fun defer(crossinline block: Mu.Continuation<S>.() -> Unit): Mu<S> = Mu.defer {
+    inline fun defer(
+        crossinline block: Mu.Continuation<S>.() -> Unit
+    ): Mu<S> = Mu.defer {
         block(it)
     }
 
@@ -51,3 +75,4 @@ class MooreScope<S> {
 
     operator fun Mu<S>.plus(next: Mu.Action<S>): Mu<S> = then(next)
 }
+
