@@ -10,7 +10,6 @@ package ph.codeia.fist;
  *
  * @param <S> The state type
  */
-@SuppressWarnings("NewApi")
 public interface Fst<S> {
 
     /**
@@ -195,20 +194,11 @@ public interface Fst<S> {
 
         /**
          * @param projection The transform function
+         * @param <T> The projection type
+         * @return the projection
          * @see Fst#project(Fn.Func)
          */
-        default <T> T project(Fn.Func<S, T> projection) {
-            return new Mu.Action<S>() {
-                T result;
-                { exec(this); }
-
-                @Override
-                public Mu<S> apply(S state) {
-                    result = projection.apply(state);
-                    return Mu.noop();
-                }
-            }.result;
-        }
+        <T> T project(Fn.Func<S, T> projection);
 
         /**
          * @see Fst#inspect(Fn.Proc)
@@ -233,6 +223,5 @@ public interface Fst<S> {
          */
         <S> Fst<S> build(S state);
     }
-
 }
 

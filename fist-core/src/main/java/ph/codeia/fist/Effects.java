@@ -12,7 +12,6 @@ package ph.codeia.fist;
  * @see Mi.Action
  * @see Fst#exec(Effects, Mu.Action)
  */
-@SuppressWarnings("NewApi")
 public interface Effects<S> {
     /**
      * Called when the machine executes an ENTER or REENTER command and when
@@ -29,6 +28,6 @@ public interface Effects<S> {
      * @param e The error
      */
     default void handle(Throwable e) {
-        throw e instanceof RuntimeException ?  (RuntimeException) e : new RuntimeException(e);
+        throw e instanceof RuntimeException ? (RuntimeException) e : new RuntimeException(e);
     }
 }

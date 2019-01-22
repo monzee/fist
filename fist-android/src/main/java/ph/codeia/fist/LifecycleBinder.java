@@ -79,5 +79,15 @@ public class LifecycleBinder {
         public void exec(Mi.Action<S, E> action) {
             delegate.exec(action);
         }
+
+        @Override
+        public <T> T project(Fn.Func<S, T> projection) {
+            return delegate.project(projection);
+        }
+
+        @Override
+        public void inspect(Fn.Proc<S> proc) {
+            delegate.inspect(proc);
+        }
     }
 }

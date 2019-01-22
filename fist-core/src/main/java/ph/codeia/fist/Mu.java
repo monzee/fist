@@ -18,7 +18,6 @@ import java.util.concurrent.Callable;
  * @param <S> The state type
  * @see Mi
  */
-@SuppressWarnings("NewApi")
 public final class Mu<S> {
 
     /**
@@ -446,6 +445,16 @@ public final class Mu<S> {
          * @param nextAction The action to send to the state machine
          */
         void resume(Action<S> nextAction);
+
+        /**
+         * Shortcut for {@code resume(_ -> Mu.noop())}.
+         * <p>
+         * This is to signal that the deferred action succeeded but didn't
+         * have a meaningful return value or you're just not interested.
+         */
+        default void ok() {
+            resume(o -> Mu.noop());
+        }
 
         /**
          * Shortcut for {@code resume(_ -> Mu.enter(newState))}.

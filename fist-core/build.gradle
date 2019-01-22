@@ -41,13 +41,31 @@ publishing {
             from components.java
             artifact jarSources
             artifact jarJavadoc
-
-            pom.withXml {
-                asNode().children().last() + pomMetadata(
-                    name: 'Fist Core',
-                    description: 'Abstract finite state transducer',
-                    url: 'https://github.com/monzee/fist'
-                )
+            pom {
+                name = 'Fist Core'
+                description = 'Abstract finite state transducer'
+                url = 'https://github.com/monzee/fist'
+                developers {
+                    developer {
+                        id = 'monzee'
+                        name = 'Mon Zafra'
+                        email = 'mz@codeia.ph'
+                        organization = 'Codeia Inc'
+                        organizationUrl = 'https://codeia.ph'
+                    }
+                }
+                licenses {
+                    license {
+                        name = 'MIT License'
+                        url = 'https://mit-license.org/license.txt'
+                        distribution = 'repo'
+                    }
+                }
+                scm {
+                    url = 'https://github.com/monzee/fist'
+                    connection = 'scm:git:https://github.com/monzee/fist.git'
+                    developerConnection = 'scm:git:ssh://git@github.com:monzee/fist.git'
+                }
             }
         }
     }

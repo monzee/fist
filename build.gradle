@@ -9,8 +9,9 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:3.2.1'
+        classpath 'com.android.tools.build:gradle:3.3.0'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "digital.wup:android-maven-publish:3.6.2"
     }
 }
 
@@ -30,37 +31,3 @@ task clean(type: Delete) {
     delete rootProject.buildDir
 }
 
-static def node(Closure c) {
-    c.resolveStrategy = Closure.DELEGATE_FIRST
-    c
-}
-
-static def pomMetadata(meta) {
-    node {
-        ['name', 'description', 'url'].each { it in meta && "$it"(meta[it]) }
-
-        developers {
-            developer {
-                id 'monzee'
-                name 'Mon Zafra'
-                email 'mz@codeia.ph'
-                organization 'Codeia Inc'
-                organizationUrl 'https://codeia.ph'
-            }
-        }
-
-        licenses {
-            license {
-                name 'MIT License'
-                url 'https://mit-license.org/license.txt'
-                distribution 'repo'
-            }
-        }
-
-        scm {
-            url 'https://github.com/monzee/fist'
-            connection 'scm:git:https://github.com/monzee/fist.git'
-            developerConnection 'scm:git:ssh://git@github.com:monzee/fist.git'
-        }
-    }
-}
